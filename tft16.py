@@ -108,7 +108,6 @@ ALL_UNITS = [
     {"name": "Xerath", "traits": ["Shurima", "Ascendant"], "cost": 5, "diff": 3, "role": "carry"},
     # 7 COST
     {"name": "Ryze (Clone)", "traits": ["Rune Mage"], "cost": 7, "diff": 3, "role": "carry"},
-    {"name": "Sylas", "traits": ["Chainbreaker", "Arcanist", "Defender"], "cost": 7, "diff": 3, "role": "tank"},
     # UNLOCKABLES (Only Easy/Medium)
     {"name": "Mel", "traits": ["Noxus", "Disruptor"], "cost": 5, "diff": 3, "role": "carry"},
     {"name": "Bard", "traits": ["Caretaker"], "cost": 2, "diff": 2, "role": "supp"},
@@ -347,4 +346,5 @@ if run:
 
 elif not run:
     st.info("👈 Select Level -> Click FIND SMART TEAMS")
+
 
