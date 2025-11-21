@@ -110,14 +110,13 @@ ALL_UNITS = [
     {"name": "Ornn", "traits": ["Blacksmith", "Warden"], "cost": 5, "diff": 3},
     {"name": "Shyvana", "traits": ["Dragonborn", "Juggernaut"], "cost": 5, "diff": 3},
     {"name": "Zilean", "traits": ["Chronokeeper", "Invoker"], "cost": 5, "diff": 3},
+    
+    # UNLOCKABLES
     {"name": "Aatrox", "traits": ["Darkin", "Slayer"], "cost": 5, "diff": 3},
     {"name": "Sett", "traits": ["Ionia", "The Boss"], "cost": 5, "diff": 3},
     {"name": "Volibear", "traits": ["Freljord", "Bruiser"], "cost": 5, "diff": 3},
     {"name": "Xerath", "traits": ["Shurima", "Ascendant"], "cost": 5, "diff": 3},
     {"name": "Mel", "traits": ["Noxus", "Disruptor"], "cost": 5, "diff": 3},
-    {"name": "Tahm Kench", "traits": ["Bilgewater", "Glutton", "Bruiser"], "cost": 5, "diff": 3},
-    
-    # UNLOCKABLES
     {"name": "Bard", "traits": ["Caretaker"], "cost": 2, "diff": 2},
     {"name": "Orianna", "traits": ["Piltover", "Invoker"], "cost": 2, "diff": 2},
     {"name": "Poppy", "traits": ["Demacia", "Yordle", "Juggernaut"], "cost": 1, "diff": 1},
@@ -337,3 +336,4 @@ if run:
 
 elif not run:
     st.info("👈 Select Level and click **FIND TEAMS**.")
+
