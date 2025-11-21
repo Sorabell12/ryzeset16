@@ -114,7 +114,6 @@ ALL_UNITS = [
     {"name": "Sett", "traits": ["Ionia", "The Boss"], "cost": 5, "diff": 3},
     {"name": "Volibear", "traits": ["Freljord", "Bruiser"], "cost": 5, "diff": 3},
     {"name": "Xerath", "traits": ["Shurima", "Ascendant"], "cost": 5, "diff": 3},
-    {"name": "Mel", "traits": ["Noxus", "Disruptor"], "cost": 5, "diff": 3},
     
     # UNLOCKABLES
     {"name": "Mel", "traits": ["Noxus", "Disruptor"], "cost": 5, "diff": 3},
@@ -358,5 +357,6 @@ if run:
 
 elif not run:
     st.info("👈 Select Level and click **FIND DIVERSE TEAMS**.")
+
 
 
