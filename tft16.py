@@ -1,7 +1,7 @@
 import streamlit as st
 import itertools
 
-# --- 1. CẤU HÌNH & CSS (GIỮ NGUYÊN COMPACT UI) ---
+# --- 1. PAGE CONFIGURATION & CSS ---
 st.set_page_config(page_title="TFT Set 16 Optimizer", page_icon="⚡", layout="wide")
 
 st.markdown("""
@@ -12,6 +12,8 @@ st.markdown("""
             width: 100%; background-color: #FF4B4B; color: white; font-weight: bold; border: none;
         }
         div.stButton > button:hover { background-color: #FF0000; color: white; }
+        /* Tùy chỉnh Expander cho đẹp hơn */
+        .streamlit-expanderHeader { font-weight: bold; font-size: 1.1rem; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -39,7 +41,6 @@ CLASS_DATA = {
     "Quickstriker": [2, 3, 4, 5], "Disruptor": [2, 4], "Vanquisher": [2, 3, 4, 5]
 }
 
-# DANH SÁCH TƯỚNG (LOẠI BỎ CÁC TƯỚNG QUEST KHÓ KHĂN KHỎI POOL CHUNG)
 ALL_UNITS = [
     # 1 COST
     {"name": "Anivia", "traits": ["Freljord", "Invoker"], "cost": 1, "diff": 1},
@@ -97,7 +98,7 @@ ALL_UNITS = [
     {"name": "Taric", "traits": ["Targon"], "cost": 4, "diff": 2},
     {"name": "Wukong", "traits": ["Ionia", "Bruiser"], "cost": 4, "diff": 2},
     {"name": "Yunara", "traits": ["Ionia", "Quickstriker"], "cost": 4, "diff": 2},
-    # 5 COST & SHOP UNLOCKS (REALISTIC)
+    # 5 COST
     {"name": "Annie", "traits": ["Dark Child", "Arcanist"], "cost": 5, "diff": 3},
     {"name": "Azir", "traits": ["Shurima", "Emperor", "Disruptor"], "cost": 5, "diff": 3},
     {"name": "Fiddlesticks", "traits": ["Harvester", "Vanquisher"], "cost": 5, "diff": 3},
@@ -113,8 +114,7 @@ ALL_UNITS = [
     {"name": "Xerath", "traits": ["Shurima", "Ascendant"], "cost": 5, "diff": 3},
     {"name": "Mel", "traits": ["Noxus", "Disruptor"], "cost": 5, "diff": 3},
     {"name": "Tahm Kench", "traits": ["Bilgewater", "Glutton", "Bruiser"], "cost": 5, "diff": 3},
-    
-    # UNLOCKABLES (EASY/MEDIUM ONLY)
+    # UNLOCKABLES
     {"name": "Bard", "traits": ["Caretaker"], "cost": 2, "diff": 2},
     {"name": "Orianna", "traits": ["Piltover", "Invoker"], "cost": 2, "diff": 2},
     {"name": "Poppy", "traits": ["Demacia", "Yordle", "Juggernaut"], "cost": 1, "diff": 1},
@@ -135,43 +135,22 @@ ALL_UNITS = [
     {"name": "Veigar", "traits": ["Yordle", "Arcanist"], "cost": 4, "diff": 3},
     {"name": "Warwick", "traits": ["Zaun", "Quickstriker"], "cost": 1, "diff": 1},
     {"name": "Yone", "traits": ["Ionia", "Slayer"], "cost": 1, "diff": 1},
-    
-    # EXCLUDED "TRAP" UNITS (Removed from pool to prevent unrealistic suggestions):
-    # Baron Nashor (Requires Void 7 + Lvl 10 from start)
-    # Brock (Requires Ixtal Stacking)
-    # Zaahen (Requires 3* Xin Zhao)
-    # T-Hex (Requires Piltover streak)
-    # Rift Herald (Requires Void)
-    # Ryze (Clone)
 ]
 
-# --- ALGORITHM ---
-def solve_comp(pool, slots, user_emblems, prioritize_strength=False):
-    best_score = (-1, -1, -1)
-    best_comp = None
+# --- ALGORITHM (TOP 3) ---
+def solve_comp_top3(pool, slots, user_emblems, prioritize_strength=False):
+    # List to store top 3 teams: [(score_tuple, comp_details), ...]
+    top_teams = []
     
-    # 1. Region Units (Priority)
     region_units = [u for u in pool if any(t in REGION_DATA for t in u['traits'])]
-    
-    # 2. Targon Units (Priority)
     targon = [u for u in pool if "Targon" in u['traits']]
-    
-    # 3. High Cost Neutrals (Cost 4 & 5 only - No Trap Units)
-    # We only take units that are cost 5 or 4, and exclude 1-2 cost filler if we are in Exodia mode
     high_cost_neutral = [u for u in pool if u['cost'] >= 4 and u not in region_units]
     
     if prioritize_strength:
-        # Realistic Exodia Logic: 
-        # Take Targon + Top Tier 5-costs + Strong 4-costs
-        # Sort by cost descending
         sorted_pool = sorted(region_units + high_cost_neutral, key=lambda x: x['cost'], reverse=True)
-        
-        # Take top 22 units (enough for diversity but excludes weak units)
         final_pool = sorted_pool[:22]
-        # Ensure Targon is available
         final_pool = list({v['name']:v for v in final_pool + targon}.values())
     else:
-        # Standard Logic
         connectors = [u for u in region_units if len([t for t in u['traits'] if t in REGION_DATA]) >= 2]
         others = [u for u in region_units if u not in connectors]
         final_pool = connectors + targon + others[:15]
@@ -187,8 +166,7 @@ def solve_comp(pool, slots, user_emblems, prioritize_strength=False):
         if len(set(names)) < len(names): continue
 
         traits = {}
-        total_cost = 0 # Used for internal sorting only
-        
+        total_cost = 0
         for u in team:
             total_cost += u.get('cost', 1)
             for t in u['traits']:
@@ -196,7 +174,6 @@ def solve_comp(pool, slots, user_emblems, prioritize_strength=False):
         for emb, count in user_emblems.items():
             traits[emb] = traits.get(emb, 0) + count
         
-        # Region Score
         r_score = 0
         r_list = []
         for r, data in REGION_DATA.items():
@@ -205,7 +182,6 @@ def solve_comp(pool, slots, user_emblems, prioritize_strength=False):
                 r_score += 1
                 r_list.append(f"{r}({c})")
 
-        # Class Score
         c_score = 0
         c_list = []
         for cl, thresholds in CLASS_DATA.items():
@@ -214,30 +190,37 @@ def solve_comp(pool, slots, user_emblems, prioritize_strength=False):
                 c_score += 1
                 c_list.append(f"{cl}({c})")
 
-        # Comparison Logic:
+        # Score Tuple
         if prioritize_strength:
-            # 1. Regions (Must be high)
-            # 2. Synergy (Classes) - Unlike previous extreme exodia, realistic exodia needs synergy
-            # 3. Cost (Unit Strength)
             current_score = (r_score, c_score, total_cost)
         else:
             current_score = (r_score, c_score, total_cost)
             
-        if current_score > best_score:
-            best_score = current_score
-            best_comp = (team, r_list, c_list)
+        comp_details = (team, r_list, c_list)
+        entry = (current_score, comp_details)
+
+        # Logic to keep Top 3
+        if len(top_teams) < 3:
+            top_teams.append(entry)
+            top_teams.sort(key=lambda x: x[0], reverse=True)
+        else:
+            # If better than the worst (last) of top 3
+            if current_score > top_teams[-1][0]:
+                top_teams.pop()
+                top_teams.append(entry)
+                top_teams.sort(key=lambda x: x[0], reverse=True)
     
-    return best_score, best_comp
+    return top_teams
 
 # --- UI LAYOUT ---
 st.title("🧙‍♂️ TFT Set 16: Ryze Tool")
-st.markdown("Fit-to-Screen Edition")
+st.markdown("Fit-to-Screen | Top 3 Comps")
 
 with st.sidebar:
     st.header("⚙️ Config")
     level = st.selectbox("Level:", [8, 9, 10, 11])
     st.markdown("<br>", unsafe_allow_html=True)
-    run = st.button("🚀 FIND BEST TEAM", type="primary", use_container_width=True)
+    run = st.button("🚀 FIND TOP 3 TEAMS", type="primary", use_container_width=True)
     st.markdown("---")
     with st.expander("🧩 Region Emblems (Optional)", expanded=False):
         user_emblems = {}
@@ -259,53 +242,47 @@ if run:
     
     pool_easy = [u for u in ALL_UNITS if u['diff'] == 1]
     pool_mid = [u for u in ALL_UNITS if u['diff'] <= 2]
-    # Pool hard is now ALL_UNITS (filtered inside function)
     
-    def render_compact_result(tab, pool, p_strength=False):
+    def render_top3_results(tab, pool, p_strength=False):
         with tab:
-            if p_strength:
-                st.caption("ℹ️ Prioritizes strong 5-costs (Azir, Aatrox, etc.) and Shop units. Removes unrealistic quest units.")
+            if p_strength: st.caption("ℹ️ Prioritizes high cost units.")
             
-            with st.spinner("Calculating..."):
-                s, comp = solve_comp(pool, slots, user_emblems, p_strength)
+            with st.spinner("Searching top 3 combinations..."):
+                top_3 = solve_comp_top3(pool, slots, user_emblems, p_strength)
             
-            if comp:
-                team, r_list, c_list = comp
-                
-                m1, m2 = st.columns(2)
-                m1.metric("Regions", s[0])
-                m2.metric("Classes", len(c_list))
-                
-                st.divider()
-                
-                st.markdown("##### 📋 Suggested Units:")
-                col_l, col_r = st.columns(2)
-                col_l.markdown("1. **Ryze** : <span style='color:blue'>**Rune Mage**</span>", unsafe_allow_html=True)
-                
-                for i, u in enumerate(team):
-                    traits_html = []
-                    for t in u['traits']:
-                        if "Targon" in t: traits_html.append(f"<span style='color:#9C27B0'><b>{t}</b></span>")
-                        elif any(t in x for x in r_list): traits_html.append(f"<span style='color:#2E7D32'><b>{t}</b></span>")
-                        elif any(t in x for x in c_list): traits_html.append(f"<span style='color:#E65100'><b>{t}</b></span>")
-                        else: traits_html.append(f"<span style='color:#555'>{t}</span>")
+            if top_3:
+                for rank, (score, comp) in enumerate(top_3):
+                    team, r_list, c_list = comp
+                    is_expanded = (rank == 0) # Only expand top 1
                     
-                    row_html = f"{i+2}. **{u['name']}** : {' '.join(traits_html)}"
-                    if i < (len(team) // 2): col_r.markdown(row_html, unsafe_allow_html=True)
-                    else: col_l.markdown(row_html, unsafe_allow_html=True)
+                    title_label = f"🏆 Option {rank+1}: {score[0]} Regions / {len(c_list)} Classes"
+                    if rank == 0: title_label += " (BEST)"
+                    
+                    with st.expander(title_label, expanded=is_expanded):
+                        st.success(f"🌍 **Regions:** {', '.join(r_list)}")
+                        if c_list: st.warning(f"🛡️ **Classes:** {', '.join(c_list)}")
                         
-                st.divider()
-                st.success(f"🌍 **Regions:** {', '.join(r_list)}")
-                if c_list:
-                    st.warning(f"🛡️ **Classes:** {', '.join(c_list)}")
-                else:
-                    st.info("No active classes.")
+                        st.divider()
+                        col_l, col_r = st.columns(2)
+                        col_l.markdown("1. **Ryze** : <span style='color:blue'>**Rune Mage**</span>", unsafe_allow_html=True)
+                        
+                        for i, u in enumerate(team):
+                            traits_html = []
+                            for t in u['traits']:
+                                if "Targon" in t: traits_html.append(f"<span style='color:#9C27B0'><b>{t}</b></span>")
+                                elif any(t in x for x in r_list): traits_html.append(f"<span style='color:#2E7D32'><b>{t}</b></span>")
+                                elif any(t in x for x in c_list): traits_html.append(f"<span style='color:#E65100'><b>{t}</b></span>")
+                                else: traits_html.append(f"<span style='color:#555'>{t}</span>")
+                            
+                            row_html = f"{i+2}. **{u['name']}** : {' '.join(traits_html)}"
+                            if i < (len(team) // 2): col_r.markdown(row_html, unsafe_allow_html=True)
+                            else: col_l.markdown(row_html, unsafe_allow_html=True)
             else:
                 st.warning("No valid team found.")
 
-    render_compact_result(tab1, pool_easy, False)
-    render_compact_result(tab2, pool_mid, False)
-    render_compact_result(tab3, ALL_UNITS, True) # Exodia uses full list but filters internally
+    render_top3_results(tab1, pool_easy, False)
+    render_top3_results(tab2, pool_mid, False)
+    render_top3_results(tab3, ALL_UNITS, True)
 
 elif not run:
-    st.info("👈 Select Level and click **FIND BEST TEAM**.")
+    st.info("👈 Select Level and click **FIND TOP 3 TEAMS**.")
