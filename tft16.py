@@ -1,7 +1,7 @@
 import streamlit as st
 import itertools
 
-# --- 1. PAGE CONFIGURATION & CSS ---
+# --- 1. PAGE CONFIG & CSS ---
 st.set_page_config(page_title="TFT Set 16 Optimizer", page_icon="⚡", layout="wide")
 
 st.markdown("""
@@ -12,7 +12,6 @@ st.markdown("""
             width: 100%; background-color: #FF4B4B; color: white; font-weight: bold; border: none;
         }
         div.stButton > button:hover { background-color: #FF0000; color: white; }
-        /* Tùy chỉnh Expander cho đẹp hơn */
         .streamlit-expanderHeader { font-weight: bold; font-size: 1.1rem; }
     </style>
 """, unsafe_allow_html=True)
@@ -20,7 +19,7 @@ st.markdown("""
 # --- DỮ LIỆU ---
 REGION_DATA = {
     "Bilgewater":   {"thresholds": [3, 5, 7, 10]},
-    "Demacia":      {"thresholds": [3, 5, 7, 11]},
+    "Demacia":      {"thresholds": [3, 5, 7, 11]}, # Mốc cao vì Galio +1
     "Freljord":     {"thresholds": [3, 5, 7]},
     "Ionia":        {"thresholds": [3, 5, 7, 10]},
     "Ixtal":        {"thresholds": [3, 5, 7]},
@@ -38,8 +37,12 @@ CLASS_DATA = {
     "Bruiser": [2, 4, 6], "Defender": [2, 4, 6], "Invoker": [2, 4, 6],
     "Slayer": [2, 4, 6], "Gunslinger": [2, 4, 6], "Arcanist": [2, 4, 6],
     "Warden": [2, 3, 4, 5], "Juggernaut": [2, 4, 6], "Longshot": [2, 3, 4, 5],
-    "Quickstriker": [2, 3, 4, 5], "Disruptor": [2, 4], "Vanquisher": [2, 3, 4, 5]
+    "Quickstriker": [2, 3, 4, 5], "Disruptor": [2, 4], "Vanquisher": [2, 3, 4, 5],
+    "Heroic": [1] # Hệ riêng của Galio
 }
+
+# GALIO ĐƯỢC TÁCH RIÊNG (KHÔNG NẰM TRONG POOL RANDOM)
+GALIO_UNIT = {"name": "Galio", "traits": ["Demacia", "Invoker", "Heroic"], "cost": 5, "diff": 3}
 
 ALL_UNITS = [
     # 1 COST
@@ -107,13 +110,14 @@ ALL_UNITS = [
     {"name": "Ornn", "traits": ["Blacksmith", "Warden"], "cost": 5, "diff": 3},
     {"name": "Shyvana", "traits": ["Dragonborn", "Juggernaut"], "cost": 5, "diff": 3},
     {"name": "Zilean", "traits": ["Chronokeeper", "Invoker"], "cost": 5, "diff": 3},
-    {"name": "Galio (Heroic)", "traits": ["Demacia", "Heroic"], "cost": 5, "diff": 3},
+    # GALIO REMOVED FROM HERE - HE IS SPECIAL
     {"name": "Aatrox", "traits": ["Darkin", "Slayer"], "cost": 5, "diff": 3},
     {"name": "Sett", "traits": ["Ionia", "The Boss"], "cost": 5, "diff": 3},
     {"name": "Volibear", "traits": ["Freljord", "Bruiser"], "cost": 5, "diff": 3},
     {"name": "Xerath", "traits": ["Shurima", "Ascendant"], "cost": 5, "diff": 3},
     {"name": "Mel", "traits": ["Noxus", "Disruptor"], "cost": 5, "diff": 3},
     {"name": "Tahm Kench", "traits": ["Bilgewater", "Glutton", "Bruiser"], "cost": 5, "diff": 3},
+    
     # UNLOCKABLES
     {"name": "Bard", "traits": ["Caretaker"], "cost": 2, "diff": 2},
     {"name": "Orianna", "traits": ["Piltover", "Invoker"], "cost": 2, "diff": 2},
@@ -137,9 +141,8 @@ ALL_UNITS = [
     {"name": "Yone", "traits": ["Ionia", "Slayer"], "cost": 1, "diff": 1},
 ]
 
-# --- ALGORITHM (TOP 3) ---
+# --- ALGORITHM WITH GALIO LOGIC ---
 def solve_comp_top3(pool, slots, user_emblems, prioritize_strength=False):
-    # List to store top 3 teams: [(score_tuple, comp_details), ...]
     top_teams = []
     
     region_units = [u for u in pool if any(t in REGION_DATA for t in u['traits'])]
@@ -162,18 +165,31 @@ def solve_comp_top3(pool, slots, user_emblems, prioritize_strength=False):
         loop_count += 1
         if loop_count > limit_max: break
         
+        # Check duplicate names
         names = [u['name'] for u in team]
         if len(set(names)) < len(names): continue
 
+        # Calculate Traits
         traits = {}
-        total_cost = 0
         for u in team:
-            total_cost += u.get('cost', 1)
             for t in u['traits']:
                 traits[t] = traits.get(t, 0) + 1
         for emb, count in user_emblems.items():
             traits[emb] = traits.get(emb, 0) + count
         
+        # GALIO LOGIC: If Demacia count >= 5 (Likely to hit 12 stars), Add Galio for FREE
+        demacia_count = traits.get("Demacia", 0)
+        has_galio = False
+        final_team = list(team)
+        
+        if demacia_count >= 5:
+            has_galio = True
+            final_team.append(GALIO_UNIT)
+            # Update Traits with Galio
+            for t in GALIO_UNIT['traits']:
+                traits[t] = traits.get(t, 0) + 1
+        
+        # Calculate Score
         r_score = 0
         r_list = []
         for r, data in REGION_DATA.items():
@@ -189,22 +205,23 @@ def solve_comp_top3(pool, slots, user_emblems, prioritize_strength=False):
             if c >= thresholds[0]:
                 c_score += 1
                 c_list.append(f"{cl}({c})")
+            elif cl == "Heroic" and c >= 1: # Special case for Galio
+                c_score += 1
+                c_list.append(f"Heroic({c})")
 
-        # Score Tuple
-        if prioritize_strength:
-            current_score = (r_score, c_score, total_cost)
-        else:
-            current_score = (r_score, c_score, total_cost)
-            
-        comp_details = (team, r_list, c_list)
+        # Prioritize Demacia count heavily if Galio is present
+        bonus_score = 5 if has_galio else 0 
+        
+        # Use tuple for sorting
+        current_score = (r_score + bonus_score, c_score)
+        
+        comp_details = (final_team, r_list, c_list, has_galio)
         entry = (current_score, comp_details)
 
-        # Logic to keep Top 3
         if len(top_teams) < 3:
             top_teams.append(entry)
             top_teams.sort(key=lambda x: x[0], reverse=True)
         else:
-            # If better than the worst (last) of top 3
             if current_score > top_teams[-1][0]:
                 top_teams.pop()
                 top_teams.append(entry)
@@ -214,7 +231,7 @@ def solve_comp_top3(pool, slots, user_emblems, prioritize_strength=False):
 
 # --- UI LAYOUT ---
 st.title("🧙‍♂️ TFT Set 16: Ryze Tool")
-st.markdown("Fit-to-Screen | Top 3 Comps")
+st.markdown("Fit-to-Screen | Top 3 Comps | **Galio Logic Enabled**")
 
 with st.sidebar:
     st.header("⚙️ Config")
@@ -247,16 +264,16 @@ if run:
         with tab:
             if p_strength: st.caption("ℹ️ Prioritizes high cost units.")
             
-            with st.spinner("Searching top 3 combinations..."):
+            with st.spinner("Searching... (Checking Galio conditions)"):
                 top_3 = solve_comp_top3(pool, slots, user_emblems, p_strength)
             
             if top_3:
                 for rank, (score, comp) in enumerate(top_3):
-                    team, r_list, c_list = comp
-                    is_expanded = (rank == 0) # Only expand top 1
+                    team, r_list, c_list, has_galio = comp
+                    is_expanded = (rank == 0)
                     
-                    title_label = f"🏆 Option {rank+1}: {score[0]} Regions / {len(c_list)} Classes"
-                    if rank == 0: title_label += " (BEST)"
+                    title_label = f"🏆 Option {rank+1}: {len(r_list)} Regions / {len(c_list)} Classes"
+                    if has_galio: title_label += " 🔥 GALIO UNLOCKED"
                     
                     with st.expander(title_label, expanded=is_expanded):
                         st.success(f"🌍 **Regions:** {', '.join(r_list)}")
@@ -266,7 +283,9 @@ if run:
                         col_l, col_r = st.columns(2)
                         col_l.markdown("1. **Ryze** : <span style='color:blue'>**Rune Mage**</span>", unsafe_allow_html=True)
                         
-                        for i, u in enumerate(team):
+                        # Display Units
+                        idx_counter = 2
+                        for u in team:
                             traits_html = []
                             for t in u['traits']:
                                 if "Targon" in t: traits_html.append(f"<span style='color:#9C27B0'><b>{t}</b></span>")
@@ -274,9 +293,18 @@ if run:
                                 elif any(t in x for x in c_list): traits_html.append(f"<span style='color:#E65100'><b>{t}</b></span>")
                                 else: traits_html.append(f"<span style='color:#555'>{t}</span>")
                             
-                            row_html = f"{i+2}. **{u['name']}** : {' '.join(traits_html)}"
-                            if i < (len(team) // 2): col_r.markdown(row_html, unsafe_allow_html=True)
+                            # Highlight Galio specially
+                            name_display = u['name']
+                            if u['name'] == "Galio":
+                                name_display = "✨ GALIO (FREE SLOT)"
+                                row_html = f"{idx_counter}. **{name_display}** : {' '.join(traits_html)}"
+                            else:
+                                row_html = f"{idx_counter}. **{name_display}** : {' '.join(traits_html)}"
+                            
+                            if idx_counter - 2 < (len(team) // 2): col_r.markdown(row_html, unsafe_allow_html=True)
                             else: col_l.markdown(row_html, unsafe_allow_html=True)
+                            
+                            idx_counter += 1
             else:
                 st.warning("No valid team found.")
 
