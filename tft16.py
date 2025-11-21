@@ -4,28 +4,32 @@ import itertools
 # --- 1. PAGE CONFIGURATION & COMPACT CSS ---
 st.set_page_config(page_title="TFT Set 16 Optimizer", page_icon="⚡", layout="wide")
 
-# --- CSS HACK: REMOVE PADDING TO FIT SCREEN ---
+# --- CSS HACK: SUPER COMPACT ---
 st.markdown("""
     <style>
-        /* Xóa khoảng trắng thừa ở trên cùng trang web */
+        /* Thu gọn lề trang web tối đa */
         .block-container {
             padding-top: 1rem;
             padding-bottom: 0rem;
-            padding-left: 2rem;
-            padding-right: 2rem;
+            padding-left: 1rem;
+            padding-right: 1rem;
         }
-        /* Thu gọn khoảng cách các phần tử */
-        .st-emotion-cache-1y4p8pa {
-            padding-top: 0rem;
+        /* Thu gọn khoảng cách trong Sidebar */
+        section[data-testid="stSidebar"] .block-container {
+            padding-top: 1rem;
         }
-        /* Làm tiêu đề nhỏ lại một chút */
-        h1 {
-            font-size: 1.8rem !important;
-            margin-bottom: 0rem !important;
+        /* Làm nút bấm nổi bật hơn */
+        div.stButton > button {
+            width: 100%;
+            background-color: #FF4B4B;
+            color: white;
+            font-weight: bold;
+            border: none;
         }
-        /* Tối ưu hiển thị trên mobile/khung nhỏ */
-        div[data-testid="stMetricValue"] {
-            font-size: 1.2rem !important;
+        div.stButton > button:hover {
+            background-color: #FF0000;
+            border: none;
+            color: white;
         }
     </style>
 """, unsafe_allow_html=True)
@@ -228,17 +232,26 @@ def solve_comp(pool, slots, user_emblems, prioritize_strength=False):
     
     return best_score, best_comp
 
-# --- COMPACT UI LAYOUT ---
+# --- UI LAYOUT (RE-ORDERED) ---
 st.title("🧙‍♂️ TFT Set 16: Ryze Tool")
-st.markdown("**Fit-to-Screen Edition**: Optimized for laptop & desktop viewing.")
+st.markdown("Fit-to-Screen Edition")
 
 # Sidebar Compact
 with st.sidebar:
     st.header("⚙️ Config")
+    
+    # 1. Level Selector (TOP)
     level = st.selectbox("Level:", [8, 9, 10, 11])
     
-    # Use EXPANDER to save vertical space
-    with st.expander("🧩 Region Emblems (Click to Open)", expanded=True):
+    # 2. BUTTON (MOVED TO TOP - NO SCROLLING NEEDED)
+    st.markdown("<br>", unsafe_allow_html=True)
+    run = st.button("🚀 FIND BEST TEAM", type="primary", use_container_width=True)
+    st.markdown("---")
+
+    # 3. Emblems (BOTTOM)
+    # Expander default set to False so it doesn't clutter view initially
+    with st.expander("🧩 Region Emblems (Optional)", expanded=False):
+        st.caption("Only input if you have emblems")
         user_emblems = {}
         c1, c2 = st.columns(2)
         keys = sorted(REGION_DATA.keys())
@@ -251,8 +264,6 @@ with st.sidebar:
             for k in keys[mid:]:
                 v = st.number_input(k, 0, 3, key=k)
                 if v: user_emblems[k]=v
-    
-    run = st.button("🚀 FIND BEST TEAM", type="primary", use_container_width=True)
 
 # Main Area
 if run:
@@ -266,11 +277,13 @@ if run:
     
     def render_compact_result(tab, pool, p_strength=False):
         with tab:
-            s, comp = solve_comp(pool, slots, user_emblems, p_strength)
+            with st.spinner("Calculating..."):
+                s, comp = solve_comp(pool, slots, user_emblems, p_strength)
+            
             if comp:
                 team, r_list, c_list, t_cost = comp
                 
-                # Compact Metrics in one row
+                # Metrics
                 m1, m2, m3 = st.columns(3)
                 m1.metric("Regions", s[0])
                 m2.metric("Total Cost", t_cost)
@@ -278,12 +291,10 @@ if run:
                 
                 st.divider()
                 
-                # Compact List
+                # Units Display
                 st.markdown("##### 📋 Suggested Units:")
-                # Split into 2 tight columns
                 col_l, col_r = st.columns(2)
                 
-                # Ryze fixed
                 col_l.markdown("1. **Ryze** (7🟡) : <span style='color:blue'>**Rune Mage**</span>", unsafe_allow_html=True)
                 
                 for i, u in enumerate(team):
@@ -296,7 +307,7 @@ if run:
                     
                     row_html = f"{i+2}. **{u['name']}** ({u['cost']}🟡) : {' '.join(traits_html)}"
                     
-                    if i < (len(team) // 2): # Fill Right column first since Ryze is on Left
+                    if i < (len(team) // 2):
                         col_r.markdown(row_html, unsafe_allow_html=True)
                     else:
                         col_l.markdown(row_html, unsafe_allow_html=True)
@@ -310,5 +321,5 @@ if run:
     render_compact_result(tab2, pool_mid, False)
     render_compact_result(tab3, pool_hard, True)
 
-else:
-    st.info("👈 Select options in the sidebar and click **FIND BEST TEAM**.")
+elif not run:
+    st.info("👈 Select Level and click **FIND BEST TEAM** in the sidebar.")
