@@ -1,40 +1,21 @@
 import streamlit as st
 import itertools
 
-# --- 1. PAGE CONFIGURATION & COMPACT CSS ---
+# --- 1. CẤU HÌNH & CSS (GIỮ NGUYÊN COMPACT UI) ---
 st.set_page_config(page_title="TFT Set 16 Optimizer", page_icon="⚡", layout="wide")
 
-# --- CSS HACK: SUPER COMPACT ---
 st.markdown("""
     <style>
-        /* Thu gọn lề trang web tối đa */
-        .block-container {
-            padding-top: 1rem;
-            padding-bottom: 0rem;
-            padding-left: 1rem;
-            padding-right: 1rem;
-        }
-        /* Thu gọn khoảng cách trong Sidebar */
-        section[data-testid="stSidebar"] .block-container {
-            padding-top: 1rem;
-        }
-        /* Làm nút bấm nổi bật hơn */
+        .block-container { padding: 1rem 1rem 0rem 1rem; }
+        section[data-testid="stSidebar"] .block-container { padding-top: 1rem; }
         div.stButton > button {
-            width: 100%;
-            background-color: #FF4B4B;
-            color: white;
-            font-weight: bold;
-            border: none;
+            width: 100%; background-color: #FF4B4B; color: white; font-weight: bold; border: none;
         }
-        div.stButton > button:hover {
-            background-color: #FF0000;
-            border: none;
-            color: white;
-        }
+        div.stButton > button:hover { background-color: #FF0000; color: white; }
     </style>
 """, unsafe_allow_html=True)
 
-# --- DỮ LIỆU (GIỮ NGUYÊN) ---
+# --- DỮ LIỆU ---
 REGION_DATA = {
     "Bilgewater":   {"thresholds": [3, 5, 7, 10]},
     "Demacia":      {"thresholds": [3, 5, 7, 11]},
@@ -58,6 +39,7 @@ CLASS_DATA = {
     "Quickstriker": [2, 3, 4, 5], "Disruptor": [2, 4], "Vanquisher": [2, 3, 4, 5]
 }
 
+# DANH SÁCH TƯỚNG (LOẠI BỎ CÁC TƯỚNG QUEST KHÓ KHĂN KHỎI POOL CHUNG)
 ALL_UNITS = [
     # 1 COST
     {"name": "Anivia", "traits": ["Freljord", "Invoker"], "cost": 1, "diff": 1},
@@ -115,7 +97,7 @@ ALL_UNITS = [
     {"name": "Taric", "traits": ["Targon"], "cost": 4, "diff": 2},
     {"name": "Wukong", "traits": ["Ionia", "Bruiser"], "cost": 4, "diff": 2},
     {"name": "Yunara", "traits": ["Ionia", "Quickstriker"], "cost": 4, "diff": 2},
-    # 5 COST
+    # 5 COST & SHOP UNLOCKS (REALISTIC)
     {"name": "Annie", "traits": ["Dark Child", "Arcanist"], "cost": 5, "diff": 3},
     {"name": "Azir", "traits": ["Shurima", "Emperor", "Disruptor"], "cost": 5, "diff": 3},
     {"name": "Fiddlesticks", "traits": ["Harvester", "Vanquisher"], "cost": 5, "diff": 3},
@@ -125,7 +107,14 @@ ALL_UNITS = [
     {"name": "Shyvana", "traits": ["Dragonborn", "Juggernaut"], "cost": 5, "diff": 3},
     {"name": "Zilean", "traits": ["Chronokeeper", "Invoker"], "cost": 5, "diff": 3},
     {"name": "Galio (Heroic)", "traits": ["Demacia", "Heroic"], "cost": 5, "diff": 3},
-    # UNLOCKABLES
+    {"name": "Aatrox", "traits": ["Darkin", "Slayer"], "cost": 5, "diff": 3},
+    {"name": "Sett", "traits": ["Ionia", "The Boss"], "cost": 5, "diff": 3},
+    {"name": "Volibear", "traits": ["Freljord", "Bruiser"], "cost": 5, "diff": 3},
+    {"name": "Xerath", "traits": ["Shurima", "Ascendant"], "cost": 5, "diff": 3},
+    {"name": "Mel", "traits": ["Noxus", "Disruptor"], "cost": 5, "diff": 3},
+    {"name": "Tahm Kench", "traits": ["Bilgewater", "Glutton", "Bruiser"], "cost": 5, "diff": 3},
+    
+    # UNLOCKABLES (EASY/MEDIUM ONLY)
     {"name": "Bard", "traits": ["Caretaker"], "cost": 2, "diff": 2},
     {"name": "Orianna", "traits": ["Piltover", "Invoker"], "cost": 2, "diff": 2},
     {"name": "Poppy", "traits": ["Demacia", "Yordle", "Juggernaut"], "cost": 1, "diff": 1},
@@ -135,37 +124,25 @@ ALL_UNITS = [
     {"name": "Darius", "traits": ["Noxus", "Defender"], "cost": 3, "diff": 2},
     {"name": "Gwen", "traits": ["Shadow Isles", "Disruptor"], "cost": 3, "diff": 2},
     {"name": "Kennen", "traits": ["Ionia", "Yordle", "Defender"], "cost": 1, "diff": 1},
-    {"name": "Kobuko & Yuumi", "traits": ["Yordle", "Bruiser", "Invoker"], "cost": 3, "diff": 2},
     {"name": "LeBlanc", "traits": ["Noxus", "Invoker"], "cost": 3, "diff": 2},
     {"name": "Diana", "traits": ["Targon"], "cost": 4, "diff": 2},
     {"name": "Fizz", "traits": ["Bilgewater", "Yordle"], "cost": 1, "diff": 2},
     {"name": "Kai'Sa", "traits": ["Void", "Longshot", "Assimilator"], "cost": 4, "diff": 2},
     {"name": "Kalista", "traits": ["Shadow Isles", "Vanquisher"], "cost": 4, "diff": 2},
-    {"name": "Nidalee", "traits": ["Ixtal", "Huntress"], "cost": 4, "diff": 2},
     {"name": "Nasus", "traits": ["Shurima"], "cost": 4, "diff": 2},
     {"name": "Renekton", "traits": ["Shurima"], "cost": 4, "diff": 2},
-    {"name": "Rift Herald", "traits": ["Void", "Bruiser"], "cost": 4, "diff": 2},
     {"name": "Singed", "traits": ["Zaun", "Juggernaut"], "cost": 4, "diff": 2},
-    {"name": "Skarner", "traits": ["Ixtal"], "cost": 4, "diff": 2},
     {"name": "Veigar", "traits": ["Yordle", "Arcanist"], "cost": 4, "diff": 3},
     {"name": "Warwick", "traits": ["Zaun", "Quickstriker"], "cost": 1, "diff": 1},
     {"name": "Yone", "traits": ["Ionia", "Slayer"], "cost": 1, "diff": 1},
-    # 7 COST & EXODIA
-    {"name": "Aatrox (Unlock)", "traits": ["Darkin", "Slayer"], "cost": 5, "diff": 3},
-    {"name": "Aurelion Sol", "traits": ["Targon", "Star Forger"], "cost": 7, "diff": 3},
-    {"name": "Baron Nashor", "traits": ["Void", "Riftscourge"], "cost": 7, "diff": 3},
-    {"name": "Brock", "traits": ["Ixtal"], "cost": 7, "diff": 3},
-    {"name": "Mel", "traits": ["Noxus", "Disruptor"], "cost": 5, "diff": 3},
-    {"name": "Ryze (Clone)", "traits": ["Rune Mage"], "cost": 7, "diff": 3},
-    {"name": "Sett", "traits": ["Ionia", "The Boss"], "cost": 5, "diff": 3},
-    {"name": "Sylas", "traits": ["Chainbreaker", "Arcanist", "Defender"], "cost": 7, "diff": 3},
-    {"name": "T-Hex", "traits": ["Piltover", "Gunslinger", "HexMech"], "cost": 5, "diff": 3},
-    {"name": "Tahm Kench", "traits": ["Bilgewater", "Glutton", "Bruiser"], "cost": 5, "diff": 3},
-    {"name": "Thresh", "traits": ["Shadow Isles", "Warden"], "cost": 1, "diff": 1},
-    {"name": "Volibear", "traits": ["Freljord", "Bruiser"], "cost": 5, "diff": 3},
-    {"name": "Xerath", "traits": ["Shurima", "Ascendant"], "cost": 5, "diff": 3},
-    {"name": "Zaahen", "traits": ["Darkin", "Immortal"], "cost": 7, "diff": 3},
-    {"name": "Ziggs (Unlock)", "traits": ["Zaun", "Yordle", "Longshot"], "cost": 5, "diff": 3}
+    
+    # EXCLUDED "TRAP" UNITS (Removed from pool to prevent unrealistic suggestions):
+    # Baron Nashor (Requires Void 7 + Lvl 10 from start)
+    # Brock (Requires Ixtal Stacking)
+    # Zaahen (Requires 3* Xin Zhao)
+    # T-Hex (Requires Piltover streak)
+    # Rift Herald (Requires Void)
+    # Ryze (Clone)
 ]
 
 # --- ALGORITHM ---
@@ -173,15 +150,28 @@ def solve_comp(pool, slots, user_emblems, prioritize_strength=False):
     best_score = (-1, -1, -1)
     best_comp = None
     
+    # 1. Region Units (Priority)
     region_units = [u for u in pool if any(t in REGION_DATA for t in u['traits'])]
+    
+    # 2. Targon Units (Priority)
     targon = [u for u in pool if "Targon" in u['traits']]
-    high_cost_neutral = [u for u in pool if u['cost'] >= 5 and u not in region_units]
+    
+    # 3. High Cost Neutrals (Cost 4 & 5 only - No Trap Units)
+    # We only take units that are cost 5 or 4, and exclude 1-2 cost filler if we are in Exodia mode
+    high_cost_neutral = [u for u in pool if u['cost'] >= 4 and u not in region_units]
     
     if prioritize_strength:
+        # Realistic Exodia Logic: 
+        # Take Targon + Top Tier 5-costs + Strong 4-costs
+        # Sort by cost descending
         sorted_pool = sorted(region_units + high_cost_neutral, key=lambda x: x['cost'], reverse=True)
-        final_pool = sorted_pool[:25]
+        
+        # Take top 22 units (enough for diversity but excludes weak units)
+        final_pool = sorted_pool[:22]
+        # Ensure Targon is available
         final_pool = list({v['name']:v for v in final_pool + targon}.values())
     else:
+        # Standard Logic
         connectors = [u for u in region_units if len([t for t in u['traits'] if t in REGION_DATA]) >= 2]
         others = [u for u in region_units if u not in connectors]
         final_pool = connectors + targon + others[:15]
@@ -197,7 +187,8 @@ def solve_comp(pool, slots, user_emblems, prioritize_strength=False):
         if len(set(names)) < len(names): continue
 
         traits = {}
-        total_cost = 0
+        total_cost = 0 # Used for internal sorting only
+        
         for u in team:
             total_cost += u.get('cost', 1)
             for t in u['traits']:
@@ -205,6 +196,7 @@ def solve_comp(pool, slots, user_emblems, prioritize_strength=False):
         for emb, count in user_emblems.items():
             traits[emb] = traits.get(emb, 0) + count
         
+        # Region Score
         r_score = 0
         r_list = []
         for r, data in REGION_DATA.items():
@@ -213,6 +205,7 @@ def solve_comp(pool, slots, user_emblems, prioritize_strength=False):
                 r_score += 1
                 r_list.append(f"{r}({c})")
 
+        # Class Score
         c_score = 0
         c_list = []
         for cl, thresholds in CLASS_DATA.items():
@@ -221,37 +214,32 @@ def solve_comp(pool, slots, user_emblems, prioritize_strength=False):
                 c_score += 1
                 c_list.append(f"{cl}({c})")
 
+        # Comparison Logic:
         if prioritize_strength:
-            current_score = (r_score, total_cost, c_score)
+            # 1. Regions (Must be high)
+            # 2. Synergy (Classes) - Unlike previous extreme exodia, realistic exodia needs synergy
+            # 3. Cost (Unit Strength)
+            current_score = (r_score, c_score, total_cost)
         else:
             current_score = (r_score, c_score, total_cost)
             
         if current_score > best_score:
             best_score = current_score
-            best_comp = (team, r_list, c_list, total_cost)
+            best_comp = (team, r_list, c_list)
     
     return best_score, best_comp
 
-# --- UI LAYOUT (RE-ORDERED) ---
+# --- UI LAYOUT ---
 st.title("🧙‍♂️ TFT Set 16: Ryze Tool")
 st.markdown("Fit-to-Screen Edition")
 
-# Sidebar Compact
 with st.sidebar:
     st.header("⚙️ Config")
-    
-    # 1. Level Selector (TOP)
     level = st.selectbox("Level:", [8, 9, 10, 11])
-    
-    # 2. BUTTON (MOVED TO TOP - NO SCROLLING NEEDED)
     st.markdown("<br>", unsafe_allow_html=True)
     run = st.button("🚀 FIND BEST TEAM", type="primary", use_container_width=True)
     st.markdown("---")
-
-    # 3. Emblems (BOTTOM)
-    # Expander default set to False so it doesn't clutter view initially
     with st.expander("🧩 Region Emblems (Optional)", expanded=False):
-        st.caption("Only input if you have emblems")
         user_emblems = {}
         c1, c2 = st.columns(2)
         keys = sorted(REGION_DATA.keys())
@@ -265,37 +253,34 @@ with st.sidebar:
                 v = st.number_input(k, 0, 3, key=k)
                 if v: user_emblems[k]=v
 
-# Main Area
 if run:
     slots = level - 1
-    
-    tab1, tab2, tab3 = st.tabs(["Low Cost", "Standard", "EXODIA"])
+    tab1, tab2, tab3 = st.tabs(["Low Cost", "Standard", "EXODIA (Realistic)"])
     
     pool_easy = [u for u in ALL_UNITS if u['diff'] == 1]
     pool_mid = [u for u in ALL_UNITS if u['diff'] <= 2]
-    pool_hard = ALL_UNITS
+    # Pool hard is now ALL_UNITS (filtered inside function)
     
     def render_compact_result(tab, pool, p_strength=False):
         with tab:
+            if p_strength:
+                st.caption("ℹ️ Prioritizes strong 5-costs (Azir, Aatrox, etc.) and Shop units. Removes unrealistic quest units.")
+            
             with st.spinner("Calculating..."):
                 s, comp = solve_comp(pool, slots, user_emblems, p_strength)
             
             if comp:
-                team, r_list, c_list, t_cost = comp
+                team, r_list, c_list = comp
                 
-                # Metrics
-                m1, m2, m3 = st.columns(3)
+                m1, m2 = st.columns(2)
                 m1.metric("Regions", s[0])
-                m2.metric("Total Cost", t_cost)
-                m3.metric("Traits", len(c_list))
+                m2.metric("Classes", len(c_list))
                 
                 st.divider()
                 
-                # Units Display
                 st.markdown("##### 📋 Suggested Units:")
                 col_l, col_r = st.columns(2)
-                
-                col_l.markdown("1. **Ryze** (7🟡) : <span style='color:blue'>**Rune Mage**</span>", unsafe_allow_html=True)
+                col_l.markdown("1. **Ryze** : <span style='color:blue'>**Rune Mage**</span>", unsafe_allow_html=True)
                 
                 for i, u in enumerate(team):
                     traits_html = []
@@ -305,21 +290,22 @@ if run:
                         elif any(t in x for x in c_list): traits_html.append(f"<span style='color:#E65100'><b>{t}</b></span>")
                         else: traits_html.append(f"<span style='color:#555'>{t}</span>")
                     
-                    row_html = f"{i+2}. **{u['name']}** ({u['cost']}🟡) : {' '.join(traits_html)}"
-                    
-                    if i < (len(team) // 2):
-                        col_r.markdown(row_html, unsafe_allow_html=True)
-                    else:
-                        col_l.markdown(row_html, unsafe_allow_html=True)
+                    row_html = f"{i+2}. **{u['name']}** : {' '.join(traits_html)}"
+                    if i < (len(team) // 2): col_r.markdown(row_html, unsafe_allow_html=True)
+                    else: col_l.markdown(row_html, unsafe_allow_html=True)
                         
                 st.divider()
                 st.success(f"🌍 **Regions:** {', '.join(r_list)}")
+                if c_list:
+                    st.warning(f"🛡️ **Classes:** {', '.join(c_list)}")
+                else:
+                    st.info("No active classes.")
             else:
                 st.warning("No valid team found.")
 
     render_compact_result(tab1, pool_easy, False)
     render_compact_result(tab2, pool_mid, False)
-    render_compact_result(tab3, pool_hard, True)
+    render_compact_result(tab3, ALL_UNITS, True) # Exodia uses full list but filters internally
 
 elif not run:
-    st.info("👈 Select Level and click **FIND BEST TEAM** in the sidebar.")
+    st.info("👈 Select Level and click **FIND BEST TEAM**.")
