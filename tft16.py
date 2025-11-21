@@ -272,7 +272,6 @@ def solve_comp_diverse(pool, slots, user_emblems, prioritize_strength=False):
 
 # --- UI LAYOUT ---
 st.title("🧙‍♂️ TFT Set 16: Ryze Tool")
-st.markdown("Fit-to-Screen | **Diverse Strategy Edition**")
 
 with st.sidebar:
     st.header("⚙️ Config")
@@ -359,3 +358,4 @@ if run:
 
 elif not run:
     st.info("👈 Select Level and click **FIND DIVERSE TEAMS**.")
+
