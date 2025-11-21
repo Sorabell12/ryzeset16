@@ -114,9 +114,10 @@ ALL_UNITS = [
     {"name": "Sett", "traits": ["Ionia", "The Boss"], "cost": 5, "diff": 3},
     {"name": "Volibear", "traits": ["Freljord", "Bruiser"], "cost": 5, "diff": 3},
     {"name": "Xerath", "traits": ["Shurima", "Ascendant"], "cost": 5, "diff": 3},
+    {"name": "Mel", "traits": ["Noxus", "Disruptor"], "cost": 5, "diff": 3},
+    {"name": "Tahm Kench", "traits": ["Bilgewater", "Glutton", "Bruiser"], "cost": 5, "diff": 3},
     
     # UNLOCKABLES
-    {"name": "Mel", "traits": ["Noxus", "Disruptor"], "cost": 5, "diff": 3},
     {"name": "Bard", "traits": ["Caretaker"], "cost": 2, "diff": 2},
     {"name": "Orianna", "traits": ["Piltover", "Invoker"], "cost": 2, "diff": 2},
     {"name": "Poppy", "traits": ["Demacia", "Yordle", "Juggernaut"], "cost": 1, "diff": 1},
@@ -139,27 +140,27 @@ ALL_UNITS = [
     {"name": "Yone", "traits": ["Ionia", "Slayer"], "cost": 1, "diff": 1},
 ]
 
-# --- NEW ALGORITHM: DIVERSITY CHECK ---
+# --- UPDATED ALGORITHM: SMART EXODIA ---
 def solve_comp_diverse(pool, slots, user_emblems, prioritize_strength=False):
-    # 1. Pool Preparation
+    # 1. Filter Pool
     region_units = [u for u in pool if any(t in REGION_DATA for t in u['traits'])]
     targon = [u for u in pool if "Targon" in u['traits']]
     high_cost_neutral = [u for u in pool if u['cost'] >= 4 and u not in region_units]
     
     if prioritize_strength:
+        # Exodia Pool: Priority is still High Cost Units
         sorted_pool = sorted(region_units + high_cost_neutral, key=lambda x: x['cost'], reverse=True)
         final_pool = sorted_pool[:22]
         final_pool = list({v['name']:v for v in final_pool + targon}.values())
     else:
+        # Standard Pool
         connectors = [u for u in region_units if len([t for t in u['traits'] if t in REGION_DATA]) >= 2]
         others = [u for u in region_units if u not in connectors]
         final_pool = connectors + targon + others[:15]
 
     limit_max = 1500000
     loop_count = 0
-    
-    # Store top candidates
-    candidates = [] # List of tuples (score_tuple, details)
+    candidates = []
 
     for team in itertools.combinations(final_pool, slots):
         loop_count += 1
@@ -177,7 +178,7 @@ def solve_comp_diverse(pool, slots, user_emblems, prioritize_strength=False):
         for emb, count in user_emblems.items():
             traits[emb] = traits.get(emb, 0) + count
         
-        # GALIO Logic
+        # Galio Logic
         demacia_count = traits.get("Demacia", 0)
         has_galio = False
         final_team = list(team)
@@ -185,8 +186,7 @@ def solve_comp_diverse(pool, slots, user_emblems, prioritize_strength=False):
         if demacia_count >= 5:
             has_galio = True
             final_team.append(GALIO_UNIT)
-            for t in GALIO_UNIT['traits']:
-                traits[t] = traits.get(t, 0) + 1
+            for t in GALIO_UNIT['traits']: traits[t] = traits.get(t, 0) + 1
         
         r_score = 0
         r_list = []
@@ -209,63 +209,48 @@ def solve_comp_diverse(pool, slots, user_emblems, prioritize_strength=False):
 
         bonus_score = 5 if has_galio else 0 
         
-        # Primary score includes Bonus, but we keep r_score separate for diversity check
+        # --- THE FIX IS HERE: SCORING LOGIC ---
         if prioritize_strength:
-            sort_key = (r_score + bonus_score, total_cost, c_score)
+            # OLD: (Regions, Cost, Classes) -> This caused 0 traits issue
+            # NEW: (Regions, Classes, Cost) -> Prioritize Synergy WITHIN the High-Cost Pool
+            sort_key = (r_score + bonus_score, c_score, total_cost)
         else:
             sort_key = (r_score + bonus_score, c_score, total_cost)
             
         details = (final_team, r_list, c_list, has_galio, r_score + bonus_score)
-        
-        # We keep a buffer of good candidates
         candidates.append((sort_key, details))
     
-    # --- DIVERSITY FILTERING ---
-    # Sort all candidates by score
+    # Diversity Logic
     candidates.sort(key=lambda x: x[0], reverse=True)
-    
     final_top_3 = []
     
     if candidates:
-        # Option 1: Absolute Best
         opt1 = candidates[0]
         final_top_3.append(opt1)
-        best_r_score = opt1[1][4] # Get r_score from details
+        best_r = opt1[1][4]
         
-        # Option 2: Find best team with DIFFERENT Region Score (e.g., 4 instead of 5)
-        # If not found, find one with significantly different cost/classes
         opt2 = None
         for cand in candidates:
-            r_val = cand[1][4]
-            if r_val < best_r_score: # Strict diversity in regions
+            if cand[1][4] < best_r:
                 opt2 = cand
                 break
-        
-        if not opt2: # If no different region count exists, pick next best
-             if len(candidates) > 1: opt2 = candidates[1]
+        if not opt2 and len(candidates)>1: opt2 = candidates[1]
         
         if opt2:
             final_top_3.append(opt2)
-            
-            # Option 3: Find best team with DIFFERENT Region Score from both
             opt3 = None
             r_val_2 = opt2[1][4]
-            
             for cand in candidates:
                 r_val = cand[1][4]
-                if r_val < r_val_2 and r_val < best_r_score:
+                if r_val < r_val_2 and r_val < best_r:
                     opt3 = cand
                     break
-            
-            if not opt3: # Fallback
-                # Find something not equal to opt1 and opt2 indices
+            if not opt3:
                 for cand in candidates:
                     if cand != opt1 and cand != opt2:
                         opt3 = cand
                         break
-            
-            if opt3:
-                final_top_3.append(opt3)
+            if opt3: final_top_3.append(opt3)
 
     return final_top_3
 
@@ -276,7 +261,7 @@ with st.sidebar:
     st.header("⚙️ Config")
     level = st.selectbox("Level:", [8, 9, 10, 11])
     st.markdown("<br>", unsafe_allow_html=True)
-    run = st.button("🚀 FIND DIVERSE TEAMS", type="primary", use_container_width=True)
+    run = st.button("🚀 FIND TEAMS", type="primary", use_container_width=True)
     st.markdown("---")
     with st.expander("🧩 Region Emblems (Optional)", expanded=False):
         user_emblems = {}
@@ -294,16 +279,16 @@ with st.sidebar:
 
 if run:
     slots = level - 1
-    tab1, tab2, tab3 = st.tabs(["Low Cost", "Standard", "EXODIA (Realistic)"])
+    tab1, tab2, tab3 = st.tabs(["Low Cost", "Standard", "EXODIA (Smart)"])
     
     pool_easy = [u for u in ALL_UNITS if u['diff'] == 1]
     pool_mid = [u for u in ALL_UNITS if u['diff'] <= 2]
     
     def render_top3_results(tab, pool, p_strength=False):
         with tab:
-            if p_strength: st.caption("ℹ️ Prioritizes high cost units.")
+            if p_strength: st.caption("ℹ️ Uses expensive units but prioritizes Synergy.")
             
-            with st.spinner("Analyzing diverse strategies..."):
+            with st.spinner("Analyzing..."):
                 top_3 = solve_comp_diverse(pool, slots, user_emblems, p_strength)
             
             if top_3:
@@ -311,13 +296,9 @@ if run:
                     team, r_list, c_list, has_galio, total_r = comp
                     is_expanded = (rank == 0)
                     
-                    # Dynamic Title based on rank
-                    if rank == 0:
-                        strat_name = "👑 Option 1: MAX REGIONS (Ceiling)"
-                    elif rank == 1:
-                        strat_name = "⚖️ Option 2: BALANCED / VARIATION"
-                    else:
-                        strat_name = "🛡️ Option 3: ALTERNATIVE"
+                    if rank == 0: strat_name = "👑 Option 1: BEST BALANCE"
+                    elif rank == 1: strat_name = "⚖️ Option 2: VARIATION"
+                    else: strat_name = "🛡️ Option 3: ALTERNATIVE"
 
                     title_label = f"{strat_name} — {len(r_list)} Regions / {len(c_list)} Classes"
                     if has_galio: title_label += " 🔥 GALIO"
@@ -340,8 +321,7 @@ if run:
                                 else: traits_html.append(f"<span style='color:#555'>{t}</span>")
                             
                             name_display = u['name']
-                            if u['name'] == "Galio":
-                                name_display = "✨ GALIO (FREE)"
+                            if u['name'] == "Galio": name_display = "✨ GALIO (FREE)"
                             
                             row_html = f"{idx_counter}. **{name_display}** : {' '.join(traits_html)}"
                             
@@ -356,7 +336,4 @@ if run:
     render_top3_results(tab3, ALL_UNITS, True)
 
 elif not run:
-    st.info("👈 Select Level and click **FIND DIVERSE TEAMS**.")
-
-
-
+    st.info("👈 Select Level and click **FIND TEAMS**.")
