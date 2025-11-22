@@ -440,41 +440,7 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
                             is_supported = False
                             for other_t in unit_with_trait['traits']:
                                 if other_t in active_regions_set or other_t in active_classes_set: is_supported = True
-                            if is_supported: c_score += 1 
-
-            balance_penalty = 0
-            if tank_count < 2: balance_penalty = -10 
-            
-            targon_bonus = 0
-            if "Taric" in names: targon_bonus += 20
-            annie_penalty = -12 if "Annie" in names else 0
-            
-            final_r = r_score + (5 if has_galio else 0)
-            
-            strength_score = 0
-            if prioritize_strength:
-                strength_score = team_total_cost * 2.0 
-
-            smart_score = (final_r * 25.0) + \
-                          (c_score * 12.0) + \
-                          strength_score + \
-                          balance_penalty + unused_emblem_penalty + targon_bonus + annie_penalty + useless_unit_penalty
-            
-            r_list_fmt = [f"{r}({traits[r]})" for r in REGION_DATA if traits.get(r,0) >= REGION_DATA[r]['thresholds'][0]]
-            c_list_fmt = [f"{c}({traits[c]})" for c in CLASS_DATA if traits.get(c,0) >= CLASS_DATA[c][0] and c not in UNIQUE_TRAITS]
-            if traits.get("Darkin", 0) >= 1: c_list_fmt.append(f"Darkin({traits['Darkin']})")
-            
-            for u_trait in UNIQUE_TRAITS: 
-            if traits.get(u_trait, 0) >= 1:
-                # Đảm bảo khối code này đã được thụt lề vào trong 4 khoảng trắng
-                if u_trait == "Blacksmith": c_score += 1 
-                else:
-                    unit_with_trait = next((u for u in final_team if u_trait in u['traits']), None)
-                    if unit_with_trait:
-                        is_supported = False
-                        for other_t in unit_with_trait['traits']:
-                            if other_t in active_regions_set or other_t in active_classes_set: is_supported = True
-                        if is_supported: c_score += 1
+                            if is_supported: c_list_fmt.append(u_trait)
 
             candidates.append({
                 "team": final_team,
@@ -608,72 +574,6 @@ if run:
                             active_region_names = [r.split('(')[0] for r in data['regions']]
                             idx = 1
                             for u in data['team']:
-                                col = cols[i%2].number_input(k, 0, 3, key=f"c_{k}")
-            if v: c_emblems[k] = v
-            
-    user_emblems = {**r_emblems, **c_emblems}
-
-    # --- PAYPAL / BMC DONATE ---
-    st.markdown("---")
-    st.markdown(t["donate_title"])
-    donate_url = "https://buymeacoffee.com/ngocbaocr1q"
-    
-    st.markdown(f"""
-        <a href="{donate_url}" target="_blank" style="text-decoration: none;">
-            <div style="
-                background-color: #0070BA; 
-                color: white; 
-                padding: 12px 20px; 
-                border-radius: 25px; 
-                text-align: center; 
-                font-weight: bold;
-                font-size: 16px;
-                box-shadow: 0px 4px 6px rgba(0,0,0,0.1);
-                transition: 0.3s;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                margin: 0 auto;
-            ">
-                {t["donate_btn"]}
-            </div>
-        </a>
-    """, unsafe_allow_html=True)
-
-if run:
-    slots_for_unlock = level
-    slots_for_combat = level - 1 
-    
-    tab1, tab2, tab3, tab4 = st.tabs(t["tabs"])
-    
-    pool_easy_eco = [u for u in STANDARD_UNITS if u['cost'] <= 3] 
-    pool_mid = [u for u in ALL_UNITS if u['diff'] <= 2]
-
-    # UNLOCK MISSION TAB
-    with tab4:
-        st.info(t["mission_info"])
-        
-        def render_unlock(sub_tab):
-            with sub_tab:
-                with st.spinner(t["spinner_unlock"]):
-                    res = solve_unlock_mission(slots_for_unlock, user_emblems) 
-                
-                if res:
-                    for i, data in enumerate(res):
-                        expanded = (i==0)
-                        u_count = data['unlock_count']
-                        
-                        if u_count == 0: tag = t["tag_basic"]
-                        else: tag = t["tag_unlock"].format(u_count)
-                            
-                        title = f"{tag} | {t['res_option']} {i+1}: {data['active_count']} {t['res_regions']} ({t['res_cost']}: {data['cost']}🟡)"
-                        
-                        with st.expander(title, expanded=expanded):
-                            st.success(f"{t['active']} {', '.join(data['regions'])}")
-                            cols = st.columns(2)
-                            active_region_names = [r.split('(')[0] for r in data['regions']]
-                            idx = 1
-                            for u in data['team']:
                                 col = cols[(idx-1) % 2]
                                 traits_html = []
                                 for tr in u['traits']:
@@ -722,7 +622,7 @@ if run:
                         for u in team:
                             role_icon = "🛡️" if u.get('role')=='tank' else ("⚔️" if u.get('role')=='carry' else "❤️")
                             traits_html = []
-                            unit_note = " (+Tibbers)" if u['name'] == "Annie" else ""
+                            unit_note = ""
                             if u['name'] == "Annie": unit_note += " 🐻 (2 Slots)"
                             
                             for tr in u['traits']:
@@ -750,5 +650,3 @@ if run:
 
 elif not run:
     st.info("👈 Select Level -> Click FIND TEAMS")
-
-
