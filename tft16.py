@@ -43,7 +43,6 @@ CLASS_DATA = {
 
 UNIQUE_TRAITS = list(CLASS_DATA.keys())[-22:]
 
-# GOD TIER UNITS (Always prioritize)
 GOD_TIER = ["Aatrox", "Bel'Veth", "Sion", "Heimerdinger", "Ahri", "Senna", "K'Sante", "Gangplank"]
 
 GALIO_UNIT = {"name": "Galio", "traits": ["Demacia", "Invoker", "Heroic"], "cost": 5, "diff": 3, "role": "tank"}
@@ -148,7 +147,6 @@ ALL_UNITS = [
     {"name": "Kennen", "traits": ["Ionia", "Yordle", "Defender"], "cost": 1, "diff": 1, "role": "tank"},
     {"name": "LeBlanc", "traits": ["Noxus", "Invoker"], "cost": 3, "diff": 2, "role": "carry"},
     {"name": "Fizz", "traits": ["Bilgewater", "Yordle"], "cost": 1, "diff": 2, "role": "carry"},
-    {"name": "Warwick", "traits": ["Zaun", "Quickstriker"], "cost": 1, "diff": 1, "role": "carry"},
 ]
 
 # --- ALGORITHM ---
@@ -157,23 +155,12 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
     targon = [u for u in pool if "Targon" in u['traits']]
     
     if prioritize_strength:
-        # EXODIA POOL
         high_cost = [u for u in pool if u['cost'] >= 4]
         mid_cost = [u for u in pool if u['cost'] == 3]
         efficient_low = [u for u in region_units if u['cost'] < 3 and len(u['traits']) >= 3]
-        
         raw_pool = high_cost + mid_cost + efficient_low + targon
         final_pool = list({v['name']:v for v in raw_pool}.values())
-        
-        # Sort logic: Taric > God Tier > Cost
-        def sort_key(x):
-            score = x['cost']
-            if x['name'] == "Taric": score += 100
-            if x['name'] in GOD_TIER: score += 50
-            if len(x['traits']) >= 3: score += 1
-            return score
-            
-        final_pool.sort(key=sort_key, reverse=True)
+        final_pool.sort(key=lambda x: 100 if x['name'] == "Taric" else (x['cost'] + (1 if len(x['traits'])>=3 else 0)), reverse=True)
         final_pool = final_pool[:35] 
     else:
         connectors = [u for u in region_units if len([t for t in u['traits'] if t in REGION_DATA]) >= 2]
@@ -214,10 +201,23 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
         unused_emblem_penalty = 0
         active_regions_set = set()
         
+        # REGION SCORING & SLOT WASTE PENALTY
         for r, data in REGION_DATA.items():
-            if traits.get(r, 0) >= data['thresholds'][0]: 
+            count = traits.get(r, 0)
+            if count >= data['thresholds'][0]: 
                 r_score += 1
                 active_regions_set.add(r)
+                
+                # PENALTY FOR "WASTED" SLOTS IN A REGION (Sprawl Logic)
+                current_tier_threshold = 0
+                for t in data['thresholds']:
+                    if count >= t: current_tier_threshold = t
+                    else: break
+                
+                wasted = count - current_tier_threshold
+                if wasted > 0:
+                    unused_emblem_penalty -= (wasted * 5) 
+
             elif user_emblems.get(r, 0) > 0:
                 unused_emblem_penalty -= 15
         
@@ -228,32 +228,26 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
                 c_score += 1
                 active_classes_set.add(cl)
         
-        # STRICT DEADWEIGHT CHECK (Region-based)
+        # DEADWEIGHT CHECK
         useless_unit_penalty = 0
         for u in final_team:
-            # Ignore VIPs
             if u['name'] in ["Ryze", "Galio", "Taric", "Ornn"]: continue
-            if u['name'] in GOD_TIER: continue # God Tier units are forgiven
+            if u['name'] in GOD_TIER: continue 
             
-            # Targon is safe (always active)
             if "Targon" in u['traits']: continue
             
-            # Check if unit contributes to an ACTIVE REGION
-            contributes_to_active_region = False
-            has_region_trait = False
-            
+            is_active_region = False
             for t in u['traits']:
-                if t in REGION_DATA:
-                    has_region_trait = True
-                    if t in active_regions_set:
-                        contributes_to_active_region = True
-                        break
+                if t in active_regions_set:
+                    is_active_region = True
+                    break
             
-            # CRITICAL: If unit HAS a region trait, but that region is INACTIVE -> DEADWEIGHT
-            if has_region_trait and not contributes_to_active_region:
-                useless_unit_penalty -= 50 # Severe penalty to force switch
-                
-        # 3. Conditional Unique Logic
+            # FORCE PENALTY: If unit has a Region trait, but that region is NOT active -> DEAD
+            has_any_region_trait = any(t in REGION_DATA for t in u['traits'])
+            if has_any_region_trait and not is_active_region:
+                useless_unit_penalty -= 50 # DEADWEIGHT
+
+        # Unique Logic
         for u_trait in UNIQUE_TRAITS:
             if traits.get(u_trait, 0) >= 1:
                 unit_with_trait = next((u for u in final_team if u_trait in u['traits']), None)
@@ -262,9 +256,7 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
                     else:
                         is_supported = False
                         for other_t in unit_with_trait['traits']:
-                            if other_t == u_trait: continue
-                            if other_t in active_regions_set: is_supported = True
-                            if other_t in active_classes_set: is_supported = True
+                            if other_t in active_regions_set or other_t in active_classes_set: is_supported = True
                         if is_supported: c_score += 1
 
         balance_penalty = 0
@@ -282,8 +274,8 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
         
         final_r = r_score + (5 if has_galio else 0)
         
-        # SMART SCORE
-        smart_score = (final_r * 5.0) + c_score + balance_penalty + unused_emblem_penalty + targon_bonus + annie_penalty + useless_unit_penalty + god_bonus
+        # Weight R_SCORE massively (15.0) to force wide regions
+        smart_score = (final_r * 15.0) + c_score + balance_penalty + unused_emblem_penalty + targon_bonus + annie_penalty + useless_unit_penalty + god_bonus
         
         r_list_fmt = [f"{r}({traits[r]})" for r in REGION_DATA if traits.get(r,0) >= REGION_DATA[r]['thresholds'][0]]
         c_list_fmt = [f"{c}({traits[c]})" for c in CLASS_DATA if traits.get(c,0) >= CLASS_DATA[c][0] and c not in UNIQUE_TRAITS]
@@ -336,7 +328,7 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
 
 # --- UI ---
 st.title("🧙‍♂️ TFT Set 16: Ryze AI Tool")
-st.markdown("**Strategic Diversity:** Strict Region Rule & God Tier.")
+st.markdown("**Strategic Diversity:** Balance vs Regions vs Variations.")
 
 with st.sidebar:
     st.header("⚙️ Config")
@@ -367,13 +359,13 @@ if run:
     
     def render(tab, pool, p_str=False):
         with tab:
-            if p_str: st.caption("Prioritizes **God Tier (Aatrox/Belveth)** & Active Regions.")
+            if p_str: st.caption("Pool: 3+ Cost & 3-Trait Low Costs. (No Clones)")
             with st.spinner("Analyzing strategies..."):
                 res = solve_three_strategies(pool, slots, user_emblems, p_str)
             
             if res:
                 labels = [
-                    "👑 Option 1: BEST BALANCED (AI Choice)",
+                    "👑 Option 1: BEST BALANCED (Smart AI)",
                     "🌍 Option 2: MAX REGIONS (Ryze Max Power)",
                     "🛡️ Option 3: ALTERNATIVE VARIATION"
                 ]
@@ -400,10 +392,6 @@ if run:
                         for u in team:
                             role_icon = "🛡️" if u.get('role')=='tank' else ("⚔️" if u.get('role')=='carry' else "❤️")
                             traits_html = []
-                            
-                            unit_note = ""
-                            if u['name'] == "Annie": unit_note = " (+Tibbers)"
-                            
                             for t in u['traits']:
                                 if "Targon" in t: traits_html.append(f"<span style='color:#9C27B0'><b>{t}</b></span>")
                                 elif t in UNIQUE_TRAITS or t == "Darkin": traits_html.append(f"<span style='color:#B8860B'><b>{t}</b></span>")
@@ -415,7 +403,7 @@ if run:
                             if u['name'] == "Taric": name = "💎 TARIC"
                             if u['name'] in GOD_TIER: name = f"🔥 {u['name'].upper()}"
                             
-                            txt = f"{idx}. **{name}**{unit_note} {role_icon} : {' '.join(traits_html)}"
+                            txt = f"{idx}. **{name}** {role_icon} : {' '.join(traits_html)}"
                             
                             if idx-2 < len(team)/2: cr.markdown(txt, unsafe_allow_html=True)
                             else: cl.markdown(txt, unsafe_allow_html=True)
