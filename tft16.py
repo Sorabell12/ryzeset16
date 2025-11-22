@@ -45,7 +45,7 @@ UNIQUE_TRAITS = list(CLASS_DATA.keys())[-22:]
 
 GALIO_UNIT = {"name": "Galio", "traits": ["Demacia", "Invoker", "Heroic"], "cost": 5, "diff": 3, "role": "tank"}
 
-# --- UNIT LISTS (FINAL CORRECTED DATA) ---
+# --- UNIT LISTS ---
 STANDARD_UNITS = [
     # 1 COST
     {"name": "Anivia", "traits": ["Freljord", "Invoker"], "cost": 1, "diff": 1, "role": "carry"},
@@ -74,7 +74,6 @@ STANDARD_UNITS = [
     {"name": "Teemo", "traits": ["Yordle", "Longshot"], "cost": 2, "diff": 1, "role": "carry"},
     {"name": "Tristana", "traits": ["Yordle", "Gunslinger"], "cost": 2, "diff": 1, "role": "carry"},
     {"name": "Twisted Fate", "traits": ["Bilgewater", "Quickstriker"], "cost": 2, "diff": 1, "role": "carry"},
-    # Standard Bridge Units
     {"name": "Vi", "traits": ["Piltover", "Zaun", "Defender"], "cost": 2, "diff": 1, "role": "tank"},
     {"name": "Xin Zhao", "traits": ["Demacia", "Ionia", "Warden"], "cost": 2, "diff": 1, "role": "tank"},
     {"name": "Yasuo", "traits": ["Ionia", "Slayer"], "cost": 2, "diff": 1, "role": "carry"},
@@ -137,7 +136,6 @@ UNLOCKABLE_UNITS = [
     # 4 COST
     {"name": "Fizz", "traits": ["Bilgewater", "Yordle"], "cost": 4, "diff": 2, "role": "carry"},
     {"name": "Warwick", "traits": ["Zaun", "Quickstriker"], "cost": 4, "diff": 1, "role": "carry"},
-    {"name": "Yone", "traits": ["Ionia", "Slayer"], "cost": 4, "diff": 1, "role": "carry"},
     {"name": "Nidalee", "traits": ["Ixtal", "Huntress"], "cost": 4, "diff": 2, "role": "carry"},
     {"name": "Skarner", "traits": ["Ixtal"], "cost": 4, "diff": 2, "role": "tank"},
     {"name": "Rift Herald", "traits": ["Void", "Bruiser"], "cost": 4, "diff": 2, "role": "tank"},
@@ -158,41 +156,30 @@ UNLOCKABLE_UNITS = [
 
 ALL_UNITS = STANDARD_UNITS + UNLOCKABLE_UNITS
 
-# --- ALGORITHM 1: UNLOCK MISSION (PARALLEL SEARCH) ---
+# --- ALGORITHM 1: UNLOCK MISSION ---
 def solve_unlock_mission(slots, user_emblems):
     candidates = []
     limit_max = 10000000 
     loop_count = 0
 
-    # 1. POOL: Sử dụng TOÀN BỘ tướng để tìm kiếm song song
     region_units = [u for u in ALL_UNITS if any(t in REGION_DATA for t in u['traits'])]
     
-    # 2. SCORING: Ưu tiên Standard (Basic) hơn Unlock
     def get_unlock_score(u):
         score = 0
-        
-        # Tướng Standard được ưu tiên tuyệt đối
         if any(u['name'] == su['name'] for su in STANDARD_UNITS):
             score += 5000
-        
-        # Tướng đa hệ vùng đất (Bridge Units)
         r_count = sum(1 for t in u['traits'] if t in REGION_DATA)
         if r_count >= 2: score += 1000
-        
-        # Tướng trùng Ấn
         for t in u['traits']:
             if t in user_emblems: score += 100
             if t == "Targon": score += 50 
-            
         score += (10 - u['cost'])
         return score
 
     region_units.sort(key=get_unlock_score, reverse=True)
     
-    # 3. DIVERSITY: Đảm bảo có đủ tướng Standard và Unlock để so sánh
     standard_best = [u for u in region_units if any(u['name'] == su['name'] for su in STANDARD_UNITS)][:28]
     unlock_best = [u for u in region_units if any(u['name'] == uu['name'] for uu in UNLOCKABLE_UNITS)][:10]
-    
     search_pool = standard_best + unlock_best
 
     for team in itertools.combinations(search_pool, slots):
@@ -202,7 +189,7 @@ def solve_unlock_mission(slots, user_emblems):
 
         traits = {}
         total_cost = 0
-        unlock_count = 0 # Đếm số lượng tướng cần Unlock
+        unlock_count = 0
         
         for u in team:
             total_cost += u.get('cost', 1)
@@ -230,14 +217,12 @@ def solve_unlock_mission(slots, user_emblems):
                 "regions": active_list,
                 "unlock_count": unlock_count
             })
-            # Lấy nhiều kết quả để có thể lọc ra phương án 0 unlock
             if len(candidates) >= 20: break
     
-    # SẮP XẾP: 1. Đủ 5 vùng -> 2. Số lượng Unlock (Ít nhất lên đầu) -> 3. Giá rẻ
     candidates.sort(key=lambda x: (-x['active_count'], x['unlock_count'], x['cost']))
     return candidates[:5]
 
-# --- ALGORITHM 2: STANDARD OPTIMIZER (SYNERGY NETWORK) ---
+# --- ALGORITHM 2: STANDARD OPTIMIZER (SYNERGY NETWORK + ANNIE FIX) ---
 def build_synergy_pool(base_pool, user_emblems, prioritize_strength=False):
     seed_traits = set(user_emblems.keys())
     seed_traits.add("Targon")
@@ -251,11 +236,13 @@ def build_synergy_pool(base_pool, user_emblems, prioritize_strength=False):
     final_pool = []
     seen_names = set()
 
+    # 1. Add Seeds
     for u in seed_units:
         if u['name'] not in seen_names:
             final_pool.append(u)
             seen_names.add(u['name'])
             
+    # 2. Add Linked Units
     for u in base_pool:
         if u['name'] in seen_names: continue
         has_link = False
@@ -267,7 +254,19 @@ def build_synergy_pool(base_pool, user_emblems, prioritize_strength=False):
             final_pool.append(u)
             seen_names.add(u['name'])
 
-    if len(final_pool) < 45:
+    # 3. FIX: Force Trait Partners for High Cost Units
+    # Nếu trong pool có tướng 4-5 tiền (như Ziggs), tìm ngay bạn diễn của nó (như Poppy)
+    high_value_units = [u for u in final_pool if u['cost'] >= 4]
+    for hv in high_value_units:
+        for t in hv['traits']:
+            if t in CLASS_DATA or t in REGION_DATA:
+                # Tìm tất cả tướng có cùng hệ này trong base_pool
+                partners = [p for p in base_pool if t in p['traits'] and p['name'] not in seen_names]
+                for p in partners:
+                    final_pool.append(p)
+                    seen_names.add(p['name'])
+
+    if len(final_pool) < 50: # Tăng limit pool lên 50 để chứa đủ
         expensive_fillers = [u for u in base_pool if u['cost'] >= 4 and u['name'] not in seen_names]
         final_pool.extend(expensive_fillers)
 
@@ -276,7 +275,7 @@ def build_synergy_pool(base_pool, user_emblems, prioritize_strength=False):
     else:
         final_pool.sort(key=lambda x: x['cost'])
         
-    return final_pool[:45]
+    return final_pool[:50]
 
 def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False):
     final_pool = build_synergy_pool(pool, user_emblems, prioritize_strength)
@@ -285,130 +284,158 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
     loop_count = 0
     candidates = []
 
-    for team in itertools.combinations(final_pool, slots):
-        loop_count += 1
-        if loop_count > limit_max: break
-        if len(set([u['name'] for u in team])) < len(team): continue
+    # Chúng ta sẽ duyệt qua các tổ hợp.
+    # LƯU Ý: Vì Annie tốn 2 slot, chúng ta không thể chỉ dùng itertools.combinations(pool, slots)
+    # vì nó luôn trả về 'slots' tướng. Nếu có Annie, team đó sẽ bị quá tải slot.
+    
+    # GIẢI PHÁP: Duyệt tổ hợp với kích thước (slots) và (slots - 1)
+    # Team chuẩn (không Annie): cần 'slots' tướng.
+    # Team có Annie: cần 'slots - 1' tướng (vì Annie + 1 slot trống = 2 slot).
+    
+    search_sizes = [slots]
+    if any(u['name'] == "Annie" for u in final_pool):
+        search_sizes.append(slots - 1)
 
-        traits = {}
-        tank_count = 0
-        team_total_cost = 0 
-        names = [u['name'] for u in team]
-        
-        for u in team:
-            team_total_cost += u.get('cost', 1)
-            if u.get('role') == 'tank': tank_count += 1
-            for t in u['traits']:
-                traits[t] = traits.get(t, 0) + 1
-            if u['name'] == "Annie": traits['Arcanist'] = traits.get('Arcanist', 0) + 1
-                
-        for emb, count in user_emblems.items():
-            traits[emb] = traits.get(emb, 0) + count
-        
-        has_galio = False
-        final_team = list(team)
-        if traits.get("Demacia", 0) >= 6:
-            has_galio = True
-            final_team.append(GALIO_UNIT)
-            tank_count += 1
-            for t in GALIO_UNIT['traits']: traits[t] = traits.get(t, 0) + 1
-        
-        r_score = 0
-        active_regions_set = set()
-        unused_emblem_penalty = 0
-        
-        for r, data in REGION_DATA.items():
-            count = traits.get(r, 0)
-            if count >= data['thresholds'][0]: 
-                r_score += 1
-                active_regions_set.add(r)
-                current_tier_threshold = 0
-                for t in data['thresholds']:
-                    if count >= t: current_tier_threshold = t
-                    else: break
-                if count > current_tier_threshold: unused_emblem_penalty -= 5
-            elif user_emblems.get(r, 0) > 0:
-                unused_emblem_penalty -= 15
-        
-        # --- NEW LOGIC: CLASS WEIGHTING (STANDARD > UNIQUE) ---
-        c_score = 0
-        active_classes_set = set()
-        for cl, thresholds in CLASS_DATA.items():
-            if traits.get(cl, 0) >= thresholds[0]: 
-                c_score += 2 # Hệ truyền thống (Juggernaut/Defender) +2 điểm
-                active_classes_set.add(cl)
-        
-        useless_unit_penalty = 0
-        for u in final_team:
-            if u['name'] in ["Ryze", "Galio", "Taric", "Ornn"]: continue
-            is_contributing = False
-            for t in u['traits']:
-                if t in active_regions_set or t in active_classes_set:
-                    is_contributing = True
-                    break
-            if not is_contributing:
-                if u['cost'] <= 2: useless_unit_penalty -= 30
-                else: useless_unit_penalty -= 10
+    for size in search_sizes:
+        for team in itertools.combinations(final_pool, size):
+            loop_count += 1
+            if loop_count > limit_max: break
+            if len(set([u['name'] for u in team])) < len(team): continue
 
-        targon_c = traits.get("Targon", 0)
-        if targon_c == 1: useless_unit_penalty += 50
-        elif targon_c > 1: useless_unit_penalty -= 20
-        elif targon_c == 0: useless_unit_penalty -= 100 
-
-        for u_trait in UNIQUE_TRAITS:
-            if traits.get(u_trait, 0) >= 1:
-                if u_trait == "Blacksmith": c_score += 1
+            # --- KIỂM TRA SLOT CỦA ANNIE ---
+            slots_used = 0
+            has_annie = False
+            for u in team:
+                if u['name'] == "Annie":
+                    slots_used += 2
+                    has_annie = True
                 else:
-                    unit_with_trait = next((u for u in final_team if u_trait in u['traits']), None)
-                    if unit_with_trait:
-                        is_supported = False
-                        for other_t in unit_with_trait['traits']:
-                            if other_t in active_regions_set or other_t in active_classes_set: is_supported = True
-                        if is_supported: c_score += 1 # Hệ độc nhất (Empress) chỉ +1 điểm
+                    slots_used += 1
+            
+            # Nếu dùng quá số slot cho phép -> Bỏ qua
+            if slots_used > slots: continue
+            
+            # Nếu đang xét size nhỏ (slots - 1) mà KHÔNG có Annie -> Bỏ qua (vì bị thiếu người vô lý)
+            if size == (slots - 1) and not has_annie: continue
 
-        balance_penalty = 0
-        if tank_count < 2: balance_penalty = -10 
-        
-        targon_bonus = 0
-        if "Taric" in names: targon_bonus += 20
-        annie_penalty = -12 if "Annie" in names else 0
-        
-        final_r = r_score + (5 if has_galio else 0)
-        
-        strength_score = 0
-        if prioritize_strength:
-            strength_score = team_total_cost * 2.0 
+            traits = {}
+            tank_count = 0
+            team_total_cost = 0 
+            names = [u['name'] for u in team]
+            
+            for u in team:
+                team_total_cost += u.get('cost', 1)
+                if u.get('role') == 'tank': tank_count += 1
+                for t in u['traits']:
+                    traits[t] = traits.get(t, 0) + 1
+                if u['name'] == "Annie": traits['Arcanist'] = traits.get('Arcanist', 0) + 1
+                    
+            for emb, count in user_emblems.items():
+                traits[emb] = traits.get(emb, 0) + count
+            
+            has_galio = False
+            final_team = list(team)
+            if traits.get("Demacia", 0) >= 6:
+                has_galio = True
+                final_team.append(GALIO_UNIT)
+                tank_count += 1
+                for t in GALIO_UNIT['traits']: traits[t] = traits.get(t, 0) + 1
+            
+            r_score = 0
+            active_regions_set = set()
+            unused_emblem_penalty = 0
+            
+            for r, data in REGION_DATA.items():
+                count = traits.get(r, 0)
+                if count >= data['thresholds'][0]: 
+                    r_score += 1
+                    active_regions_set.add(r)
+                    current_tier_threshold = 0
+                    for t in data['thresholds']:
+                        if count >= t: current_tier_threshold = t
+                        else: break
+                    if count > current_tier_threshold: unused_emblem_penalty -= 5
+                elif user_emblems.get(r, 0) > 0:
+                    unused_emblem_penalty -= 15
+            
+            c_score = 0
+            active_classes_set = set()
+            for cl, thresholds in CLASS_DATA.items():
+                if traits.get(cl, 0) >= thresholds[0]: 
+                    c_score += 2 
+                    active_classes_set.add(cl)
+            
+            useless_unit_penalty = 0
+            for u in final_team:
+                if u['name'] in ["Ryze", "Galio", "Taric", "Ornn"]: continue
+                is_contributing = False
+                for t in u['traits']:
+                    if t in active_regions_set or t in active_classes_set:
+                        is_contributing = True
+                        break
+                if not is_contributing:
+                    if u['cost'] <= 2: useless_unit_penalty -= 30
+                    else: useless_unit_penalty -= 10
 
-        smart_score = (final_r * 25.0) + \
-                      (c_score * 12.0) + \
-                      strength_score + \
-                      balance_penalty + unused_emblem_penalty + targon_bonus + annie_penalty + useless_unit_penalty
-        
-        r_list_fmt = [f"{r}({traits[r]})" for r in REGION_DATA if traits.get(r,0) >= REGION_DATA[r]['thresholds'][0]]
-        c_list_fmt = [f"{c}({traits[c]})" for c in CLASS_DATA if traits.get(c,0) >= CLASS_DATA[c][0] and c not in UNIQUE_TRAITS]
-        if traits.get("Darkin", 0) >= 1: c_list_fmt.append(f"Darkin({traits['Darkin']})")
-        
-        for u_trait in UNIQUE_TRAITS:
-            if traits.get(u_trait, 0) >= 1:
-                if u_trait == "Blacksmith": c_list_fmt.append("Blacksmith")
-                else:
-                    unit_with_trait = next((u for u in final_team if u_trait in u['traits']), None)
-                    if unit_with_trait:
-                        is_supported = False
-                        for other_t in unit_with_trait['traits']:
-                            if other_t in active_regions_set or other_t in active_classes_set: is_supported = True
-                        if is_supported: c_list_fmt.append(u_trait)
+            targon_c = traits.get("Targon", 0)
+            if targon_c == 1: useless_unit_penalty += 50
+            elif targon_c > 1: useless_unit_penalty -= 20
+            elif targon_c == 0: useless_unit_penalty -= 100 
 
-        candidates.append({
-            "team": final_team,
-            "r_score": final_r,
-            "c_score": c_score,
-            "smart_score": smart_score,
-            "r_list": r_list_fmt,
-            "c_list": c_list_fmt,
-            "galio": has_galio,
-            "tanks": tank_count
-        })
+            for u_trait in UNIQUE_TRAITS:
+                if traits.get(u_trait, 0) >= 1:
+                    if u_trait == "Blacksmith": c_score += 1
+                    else:
+                        unit_with_trait = next((u for u in final_team if u_trait in u['traits']), None)
+                        if unit_with_trait:
+                            is_supported = False
+                            for other_t in unit_with_trait['traits']:
+                                if other_t in active_regions_set or other_t in active_classes_set: is_supported = True
+                            if is_supported: c_score += 1 
+
+            balance_penalty = 0
+            if tank_count < 2: balance_penalty = -10 
+            
+            targon_bonus = 0
+            if "Taric" in names: targon_bonus += 20
+            annie_penalty = -12 if "Annie" in names else 0
+            
+            final_r = r_score + (5 if has_galio else 0)
+            
+            strength_score = 0
+            if prioritize_strength:
+                strength_score = team_total_cost * 2.0 
+
+            smart_score = (final_r * 25.0) + \
+                          (c_score * 12.0) + \
+                          strength_score + \
+                          balance_penalty + unused_emblem_penalty + targon_bonus + annie_penalty + useless_unit_penalty
+            
+            r_list_fmt = [f"{r}({traits[r]})" for r in REGION_DATA if traits.get(r,0) >= REGION_DATA[r]['thresholds'][0]]
+            c_list_fmt = [f"{c}({traits[c]})" for c in CLASS_DATA if traits.get(c,0) >= CLASS_DATA[c][0] and c not in UNIQUE_TRAITS]
+            if traits.get("Darkin", 0) >= 1: c_list_fmt.append(f"Darkin({traits['Darkin']})")
+            
+            for u_trait in UNIQUE_TRAITS:
+                if traits.get(u_trait, 0) >= 1:
+                    if u_trait == "Blacksmith": c_list_fmt.append("Blacksmith")
+                    else:
+                        unit_with_trait = next((u for u in final_team if u_trait in u['traits']), None)
+                        if unit_with_trait:
+                            is_supported = False
+                            for other_t in unit_with_trait['traits']:
+                                if other_t in active_regions_set or other_t in active_classes_set: is_supported = True
+                            if is_supported: c_list_fmt.append(u_trait)
+
+            candidates.append({
+                "team": final_team,
+                "r_score": final_r,
+                "c_score": c_score,
+                "smart_score": smart_score,
+                "r_list": r_list_fmt,
+                "c_list": c_list_fmt,
+                "galio": has_galio,
+                "tanks": tank_count
+            })
 
     if not candidates: return []
     
@@ -457,10 +484,7 @@ with st.sidebar:
                 if v: user_emblems[k]=v
 
 if run:
-    # --- LOGIC SLOT CHUẨN ---
-    # Unlock: Cần full slot level để tìm 5 vùng
     slots_for_unlock = level
-    # Combat: Cần chừa 1 slot cho Ryze
     slots_for_combat = level - 1 
     
     tab1, tab2, tab3, tab4 = st.tabs(["Low Cost (Eco)", "Standard", "EXODIA", "🔓 UNLOCK RYZE"])
@@ -480,8 +504,6 @@ if run:
                 if res:
                     for i, data in enumerate(res):
                         expanded = (i==0)
-                        
-                        # HIỂN THỊ RÕ RÀNG: BASIC vs UNLOCK
                         u_count = data['unlock_count']
                         if u_count == 0:
                             tag = "🟢 **BASIC SHOP (AVAILABLE)**"
@@ -554,6 +576,7 @@ if run:
                             role_icon = "🛡️" if u.get('role')=='tank' else ("⚔️" if u.get('role')=='carry' else "❤️")
                             traits_html = []
                             unit_note = " (+Tibbers)" if u['name'] == "Annie" else ""
+                            if u['name'] == "Annie": unit_note = " 🐻 (2 Slots)"
                             
                             for t in u['traits']:
                                 if "Targon" in t: traits_html.append(f"<span style='color:#9C27B0'><b>{t}</b></span>")
