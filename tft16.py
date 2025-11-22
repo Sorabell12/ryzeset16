@@ -159,7 +159,7 @@ STANDARD_UNITS = [
     # 4 COST
     {"name": "Taric", "traits": ["Targon"], "cost": 4, "diff": 2, "role": "tank"},
     {"name": "Ambessa", "traits": ["Noxus", "Vanquisher"], "cost": 4, "diff": 2, "role": "carry"},
-    {"name": "Bel'Veth", "traits": ["Void", "Slayer", "Empress"], "cost": 4, "diff": 2, "role": "carry"},
+    {"name": "Bel'Veth", "traits": ["Void", "Slayer"], "cost": 4, "diff": 2, "role": "carry"},
     {"name": "Braum", "traits": ["Freljord", "Warden"], "cost": 4, "diff": 2, "role": "tank"},
     {"name": "Garen", "traits": ["Demacia", "Defender"], "cost": 4, "diff": 2, "role": "carry"},
     {"name": "Lissandra", "traits": ["Freljord", "Invoker"], "cost": 4, "diff": 2, "role": "carry"},
@@ -692,5 +692,6 @@ if run:
 
 elif not run:
     st.info("👈 Select Level -> Click FIND TEAMS")
+
 
 
