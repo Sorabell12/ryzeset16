@@ -45,7 +45,7 @@ UNIQUE_TRAITS = list(CLASS_DATA.keys())[-22:]
 
 GALIO_UNIT = {"name": "Galio", "traits": ["Demacia", "Invoker", "Heroic"], "cost": 5, "diff": 3, "role": "tank"}
 
-# --- UNIT LISTS (CLASSIFIED) ---
+# --- UNIT LISTS ---
 STANDARD_UNITS = [
     # 1 COST
     {"name": "Anivia", "traits": ["Freljord", "Invoker"], "cost": 1, "diff": 1, "role": "carry"},
@@ -74,7 +74,6 @@ STANDARD_UNITS = [
     {"name": "Teemo", "traits": ["Yordle", "Longshot"], "cost": 2, "diff": 1, "role": "carry"},
     {"name": "Tristana", "traits": ["Yordle", "Gunslinger"], "cost": 2, "diff": 1, "role": "carry"},
     {"name": "Twisted Fate", "traits": ["Bilgewater", "Quickstriker"], "cost": 2, "diff": 1, "role": "carry"},
-    # BRIDGE UNITS (STANDARD)
     {"name": "Vi", "traits": ["Piltover", "Zaun", "Defender"], "cost": 2, "diff": 1, "role": "tank"},
     {"name": "Xin Zhao", "traits": ["Demacia", "Ionia", "Warden"], "cost": 2, "diff": 1, "role": "tank"},
     {"name": "Yasuo", "traits": ["Ionia", "Slayer"], "cost": 2, "diff": 1, "role": "carry"},
@@ -158,55 +157,53 @@ UNLOCKABLE_UNITS = [
 
 ALL_UNITS = STANDARD_UNITS + UNLOCKABLE_UNITS
 
-# --- ALGORITHM 1: UNLOCK MISSION (BRIDGE UNIT OPTIMIZED) ---
-def solve_unlock_mission(pool, slots, user_emblems):
+# --- ALGORITHM 1: UNLOCK MISSION (PARALLEL SEARCH & CLASSIFICATION) ---
+def solve_unlock_mission(slots, user_emblems):
     candidates = []
     limit_max = 10000000 
     loop_count = 0
 
-    region_units = [u for u in pool if any(t in REGION_DATA for t in u['traits'])]
+    # 1. LUÔN DÙNG TOÀN BỘ TƯỚNG (Basic + Unlock) ĐỂ TÌM KIẾM
+    region_units = [u for u in ALL_UNITS if any(t in REGION_DATA for t in u['traits'])]
     
-    # --- BRIDGE UNIT SCORING ---
+    # 2. SCORING: Vẫn ưu tiên Xin Zhao và các tướng trùng Ấn
     def get_unlock_score(u):
         score = 0
-        # 1. Tướng Đa Hệ Vùng Đất (Bridge Units: Xin Zhao, Vi, Poppy, Kennen...)
         r_count = sum(1 for t in u['traits'] if t in REGION_DATA)
-        if r_count >= 2: score += 2000 # Ưu tiên tuyệt đối
-        
-        # 2. Tướng trùng Ấn
+        if r_count >= 2: score += 2000
         for t in u['traits']:
             if t in user_emblems: score += 100
             if t == "Targon": score += 50 
-            
         score += (10 - u['cost'])
         return score
 
     region_units.sort(key=get_unlock_score, reverse=True)
     
-    # --- FORCED DIVERSITY (Đảm bảo đủ 5 vùng) ---
+    # 3. FORCED DIVERSITY (Trên tập ALL_UNITS)
     forced_pool = []
     seen = set()
     
-    # Lấy tướng Cầu Nối trước
+    # Lấy tướng cầu nối
     for u in region_units:
         r_count = sum(1 for t in u['traits'] if t in REGION_DATA)
         if r_count >= 2 and u['name'] not in seen:
             forced_pool.append(u)
             seen.add(u['name'])
 
-    # Sau đó lấy tướng rẻ nhất của từng vùng còn thiếu
+    # Lấy tướng rẻ nhất mỗi vùng (ưu tiên Basic trước, Unlock sau nếu cần)
     for r in REGION_DATA.keys():
         units_in_region = [u for u in region_units if r in u['traits']]
-        units_in_region.sort(key=lambda x: x['cost'])
+        # Sắp xếp: Cost thấp nhất -> Tướng Basic ưu tiên hơn Unlockable
+        units_in_region.sort(key=lambda x: (x['cost'], 1 if x in UNLOCKABLE_UNITS else 0))
+        
         added_count = 0
         for u in units_in_region:
-            if added_count >= 2: break # Lấy 2 con mỗi vùng
+            if added_count >= 2: break
             if u['name'] not in seen:
                 forced_pool.append(u)
                 seen.add(u['name'])
                 added_count += 1
     
-    # Cắt Pool
     search_pool = forced_pool[:35]
 
     for team in itertools.combinations(search_pool, slots):
@@ -216,11 +213,16 @@ def solve_unlock_mission(pool, slots, user_emblems):
 
         traits = {}
         total_cost = 0
+        has_unlockable = False # Cờ đánh dấu
         
         for u in team:
             total_cost += u.get('cost', 1)
+            # Kiểm tra xem tướng này có phải hàng Unlock không
+            if any(u['name'] == ul['name'] for ul in UNLOCKABLE_UNITS):
+                has_unlockable = True
             for t in u['traits']:
                 traits[t] = traits.get(t, 0) + 1
+                
         for emb, count in user_emblems.items():
             traits[emb] = traits.get(emb, 0) + count
             
@@ -236,20 +238,25 @@ def solve_unlock_mission(pool, slots, user_emblems):
                 "team": list(team),
                 "active_count": active_regions,
                 "cost": total_cost,
-                "regions": active_list
+                "regions": active_list,
+                "has_unlockable": has_unlockable # Lưu trạng thái
             })
-            if len(candidates) >= 5: break
+            # Lấy nhiều kết quả hơn để có cả Basic và Unlock
+            if len(candidates) >= 10: break
     
-    candidates.sort(key=lambda x: (-x['active_count'], x['cost']))
-    return candidates[:3]
+    # Sắp xếp kết quả: 
+    # 1. Số vùng kích hoạt (Cao -> Thấp)
+    # 2. Loại đội hình (Basic ưu tiên hơn -> has_unlockable = False nhỏ hơn True)
+    # 3. Giá tiền (Thấp -> Cao)
+    candidates.sort(key=lambda x: (-x['active_count'], x['has_unlockable'], x['cost']))
+    return candidates[:5] # Trả về top 5
 
-# --- ALGORITHM 2: SYNERGY NETWORK ---
+# --- ALGORITHM 2: STANDARD OPTIMIZER ---
 def build_synergy_pool(base_pool, user_emblems, prioritize_strength=False):
     seed_traits = set(user_emblems.keys())
     seed_traits.add("Targon")
     
     seed_units = [u for u in base_pool if any(t in seed_traits for t in u['traits'])]
-    
     linked_classes = set()
     for u in seed_units:
         for t in u['traits']:
@@ -341,7 +348,7 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
         active_classes_set = set()
         for cl, thresholds in CLASS_DATA.items():
             if traits.get(cl, 0) >= thresholds[0]: 
-                c_score += 1
+                c_score += 2 
                 active_classes_set.add(cl)
         
         useless_unit_penalty = 0
@@ -473,25 +480,26 @@ if run:
     with tab4:
         st.info("🏆 **Mission:** Activate 5 Regions to Unlock Ryze.")
         
-        # --- TÍNH NĂNG MỚI: CHECKBOX DÙNG UNLOCKABLE ---
-        use_unlockables = st.checkbox("Include Unlockable Units? (Poppy, Kennen, Fizz...)", value=False)
-        
-        if use_unlockables:
-            unlock_pool = [u for u in ALL_UNITS] # Dùng tất cả
-            st.caption("Searching with ALL units (Standard + Unlockables).")
-        else:
-            unlock_pool = [u for u in STANDARD_UNITS] # Chỉ dùng Standard
-            st.caption("Searching with STANDARD units only (Base Pool).")
+        # --- NO CHECKBOX NEEDED NOW ---
+        # Algorithm will intelligently find both Basic & Unlockable paths
         
         def render_unlock(sub_tab, u_pool):
             with sub_tab:
-                with st.spinner("Calculating cheapest 5-Region comps..."):
-                    res = solve_unlock_mission(u_pool, slots, user_emblems) 
+                with st.spinner("Calculating best paths (checking both Basic & Unlocked units)..."):
+                    # Pass ALL_UNITS but let the algorithm sort/tag them
+                    res = solve_unlock_mission(slots, user_emblems) 
                 
                 if res:
                     for i, data in enumerate(res):
                         expanded = (i==0)
-                        title = f"🎯 Option {i+1}: {data['active_count']} Regions (Cost: {data['cost']}🟡)"
+                        
+                        # --- SMART LABELING ---
+                        if data['has_unlockable']:
+                            tag = "🟠 **REQUIRES UNLOCKS**"
+                        else:
+                            tag = "🟢 **BASIC SHOP (AVAILABLE)**"
+                            
+                        title = f"{tag} | Option {i+1}: {data['active_count']} Regions (Cost: {data['cost']}🟡)"
                         
                         with st.expander(title, expanded=expanded):
                             st.success(f"**Active:** {', '.join(data['regions'])}")
@@ -510,12 +518,17 @@ if run:
                                     else:
                                         traits_html.append(f"<span style='color:#555'>{t}</span>")
                                 
-                                col.markdown(f"{idx}. **{u['name']}** ({u['cost']}🟡) : {' '.join(traits_html)}", unsafe_allow_html=True)
+                                # Mark Locked Units visually
+                                unit_name_display = u['name']
+                                if any(u['name'] == ul['name'] for ul in UNLOCKABLE_UNITS):
+                                    unit_name_display += " 🔒"
+
+                                col.markdown(f"{idx}. **{unit_name_display}** ({u['cost']}🟡) : {' '.join(traits_html)}", unsafe_allow_html=True)
                                 idx += 1
                 else:
-                    st.error(f"Cannot find 5 regions with {slots} slots using selected units.")
+                    st.error(f"Cannot find 5 regions with {slots} slots.")
         
-        render_unlock(st.container(), unlock_pool)
+        render_unlock(st.container(), None) # Pool handled inside now
 
     def render(tab, pool, p_str=False):
         with tab:
