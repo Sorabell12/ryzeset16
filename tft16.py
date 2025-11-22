@@ -228,6 +228,9 @@ def solve_unlock_mission(slots, user_emblems):
             })
             if len(candidates) >= 20: break
     
+    # SẮP XẾP: 1. Số vùng (Cao -> Thấp)
+    # 2. Số lượng Unlock (THẤP NHẤT -> Ưu tiên Basic Shop)
+    # 3. Giá tiền (Thấp -> Cao)
     candidates.sort(key=lambda x: (-x['active_count'], x['unlock_count'], x['cost']))
     return candidates[:5]
 
@@ -261,7 +264,7 @@ def build_synergy_pool(base_pool, user_emblems, prioritize_strength=False):
             final_pool.append(u)
             seen_names.add(u['name'])
 
-    # FORCE PARTNERS FOR HIGH COST UNITS (e.g. Ziggs needs Yordles)
+    # FORCE PARTNERS FOR HIGH COST UNITS
     high_value_units = [u for u in final_pool if u['cost'] >= 4]
     for hv in high_value_units:
         for t in hv['traits']:
@@ -489,18 +492,27 @@ with st.sidebar:
     # --- PAYPAL DONATE ---
     st.markdown("---")
     st.markdown("### ☕ Support Dev")
-    paypal_url = "https://www.paypal.com/paypalme/nhutquang2208" 
+    
+    # Link donate qua email
+    paypal_email = "tulinh0909245@gmail.com"
+    paypal_url = f"https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business={paypal_email}&currency_code=USD"
+    
     st.markdown(f"""
         <a href="{paypal_url}" target="_blank" style="text-decoration: none;">
             <div style="
                 background-color: #0070BA; 
                 color: white; 
-                padding: 10px 15px; 
-                border-radius: 5px; 
+                padding: 12px 20px; 
+                border-radius: 25px; 
                 text-align: center; 
                 font-weight: bold;
-                box-shadow: 0px 2px 5px rgba(0,0,0,0.2);
+                font-size: 16px;
+                box-shadow: 0px 4px 6px rgba(0,0,0,0.1);
                 transition: 0.3s;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                margin: 0 auto;
             ">
                 💙 Donate via PayPal
             </div>
