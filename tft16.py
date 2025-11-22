@@ -45,7 +45,7 @@ UNIQUE_TRAITS = list(CLASS_DATA.keys())[-22:]
 
 GALIO_UNIT = {"name": "Galio", "traits": ["Demacia", "Invoker", "Heroic"], "cost": 5, "diff": 3, "role": "tank"}
 
-# --- UNIT LISTS (FINAL CORRECTED) ---
+# --- UNIT LISTS (CORRECTED) ---
 STANDARD_UNITS = [
     # 1 COST
     {"name": "Anivia", "traits": ["Freljord", "Invoker"], "cost": 1, "diff": 1, "role": "carry"},
@@ -119,7 +119,6 @@ STANDARD_UNITS = [
     {"name": "Zilean", "traits": ["Chronokeeper", "Invoker"], "cost": 5, "diff": 3, "role": "supp"}
 ]
 
-# 2. UNLOCKABLE UNITS
 UNLOCKABLE_UNITS = [
     # 2 COST
     {"name": "Poppy", "traits": ["Demacia", "Yordle", "Juggernaut"], "cost": 2, "diff": 1, "role": "tank"},
@@ -128,14 +127,12 @@ UNLOCKABLE_UNITS = [
     {"name": "Graves", "traits": ["Bilgewater", "Gunslinger"], "cost": 2, "diff": 2, "role": "carry"},
     {"name": "Yorick", "traits": ["Shadow Isles", "Warden"], "cost": 2, "diff": 2, "role": "tank"},
     {"name": "Tryndamere", "traits": ["Freljord", "Slayer"], "cost": 2, "diff": 2, "role": "carry"},
-
     # 3 COST
     {"name": "Kennen", "traits": ["Ionia", "Yordle", "Defender"], "cost": 3, "diff": 2, "role": "tank"},
     {"name": "Kobuko & Yuumi", "traits": ["Yordle", "Bruiser", "Invoker"], "cost": 3, "diff": 2, "role": "tank"},
     {"name": "Darius", "traits": ["Noxus", "Defender"], "cost": 3, "diff": 2, "role": "tank"},
     {"name": "Gwen", "traits": ["Shadow Isles", "Disruptor"], "cost": 3, "diff": 2, "role": "carry"},
     {"name": "LeBlanc", "traits": ["Noxus", "Invoker"], "cost": 3, "diff": 2, "role": "carry"},
-
     # 4 COST
     {"name": "Fizz", "traits": ["Bilgewater", "Yordle"], "cost": 4, "diff": 2, "role": "carry"},
     {"name": "Warwick", "traits": ["Zaun", "Quickstriker"], "cost": 4, "diff": 1, "role": "carry"},
@@ -150,7 +147,6 @@ UNLOCKABLE_UNITS = [
     {"name": "Renekton", "traits": ["Shurima"], "cost": 4, "diff": 2, "role": "tank"},
     {"name": "Veigar", "traits": ["Yordle", "Arcanist"], "cost": 4, "diff": 3, "role": "carry"},
     {"name": "Diana", "traits": ["Targon"], "cost": 4, "diff": 2, "role": "carry"},
-
     # 5 COST
     {"name": "Sett", "traits": ["Ionia", "The Boss"], "cost": 5, "diff": 3, "role": "tank"},
     {"name": "Volibear", "traits": ["Freljord", "Bruiser"], "cost": 5, "diff": 3, "role": "tank"},
@@ -161,17 +157,82 @@ UNLOCKABLE_UNITS = [
 
 ALL_UNITS = STANDARD_UNITS + UNLOCKABLE_UNITS
 
-# --- UNLOCK ALGORITHM ---
+# --- NEW ALGORITHM: SYNERGY NETWORK BUILDER ---
+def build_synergy_pool(base_pool, user_emblems, prioritize_strength=False):
+    # 1. Hạt giống từ Ấn (Seeds)
+    seed_traits = set(user_emblems.keys())
+    seed_traits.add("Targon") # Luôn tìm Targon
+    
+    seed_units = [u for u in base_pool if any(t in seed_traits for t in u['traits'])]
+    
+    # 2. Xác định các Class liên quan (Linked Classes)
+    # Ví dụ: Có Sejuani (Freljord) -> Linked Class = Defender, Bruiser
+    linked_classes = set()
+    for u in seed_units:
+        for t in u['traits']:
+            if t in CLASS_DATA: 
+                linked_classes.add(t)
+    
+    final_pool = []
+    seen_names = set()
+
+    # 3. Thêm tướng Hạt giống
+    for u in seed_units:
+        if u['name'] not in seen_names:
+            final_pool.append(u)
+            seen_names.add(u['name'])
+            
+    # 4. Thêm tướng Liên kết (Có chung Class với hạt giống)
+    # Ví dụ: Có Sejuani -> Lấy thêm Braum (Defender), Shen (Defender)
+    for u in base_pool:
+        if u['name'] in seen_names: continue
+        
+        has_link = False
+        for t in u['traits']:
+            if t in linked_classes:
+                has_link = True
+                break
+        
+        if has_link:
+            final_pool.append(u)
+            seen_names.add(u['name'])
+
+    # 5. Điền chỗ trống bằng tướng đắt tiền (nếu còn thiếu)
+    if len(final_pool) < 45:
+        expensive_fillers = [u for u in base_pool if u['cost'] >= 4 and u['name'] not in seen_names]
+        final_pool.extend(expensive_fillers)
+
+    # 6. Sắp xếp
+    if prioritize_strength:
+        # Đắt tiền lên đầu -> Để itertools xét trước -> Braum/Sejuani ưu tiên hơn Anivia
+        final_pool.sort(key=lambda x: (x['cost'], len(x['traits'])), reverse=True)
+    else:
+        # Rẻ tiền lên đầu
+        final_pool.sort(key=lambda x: x['cost'])
+        
+    return final_pool[:45]
+
+# --- ALGORITHM 1: UNLOCK MISSION (FIX: FORCED DIVERSITY) ---
 def solve_unlock_mission(pool, slots, user_emblems):
     candidates = []
     limit_max = 2000000 
     loop_count = 0
 
+    # Lấy tất cả tướng có hệ Vùng Đất
     region_units = [u for u in pool if any(t in REGION_DATA for t in u['traits'])]
-    region_units.sort(key=lambda x: x['cost'])
     
-    # INCREASED POOL SIZE TO 48 (TO INCLUDE 4-COST UNITS LIKE TARIC)
-    search_pool = region_units[:80]
+    # --- FIX: BẮT BUỘC ĐA DẠNG ---
+    # Lấy 2 tướng rẻ nhất từ MỖI vùng đất để đảm bảo không vùng nào bị bỏ rơi
+    forced_pool = []
+    for r in REGION_DATA.keys():
+        units_in_region = [u for u in region_units if r in u['traits']]
+        units_in_region.sort(key=lambda x: x['cost'])
+        forced_pool.extend(units_in_region[:3]) # Lấy 3 con rẻ nhất mỗi vùng
+    
+    # Gộp và lọc trùng
+    region_units.sort(key=lambda x: x['cost'])
+    combined_pool = forced_pool + region_units[:25] # Thêm 25 con rẻ nhất chung
+    search_pool = list({v['name']:v for v in combined_pool}.values())
 
     for team in itertools.combinations(search_pool, slots):
         loop_count += 1
@@ -202,23 +263,18 @@ def solve_unlock_mission(pool, slots, user_emblems):
                 "cost": total_cost,
                 "regions": active_list
             })
-            if len(candidates) >= 5 and total_cost < 30: break
+            if len(candidates) >= 5: break
     
     candidates.sort(key=lambda x: (-x['active_count'], x['cost']))
     return candidates[:3]
 
-# --- MAIN ALGORITHM (DYNAMIC BALANCED) ---
+# --- ALGORITHM 2: STANDARD OPTIMIZER (SYNERGY LOGIC) ---
 def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False):
-    region_units = [u for u in pool if any(t in REGION_DATA for t in u['traits'])]
-    targon = [u for u in pool if "Targon" in u['traits']]
-    versatile_units = sorted(pool, key=lambda x: len(x['traits']), reverse=True)[:15]
-    expensive_units = [u for u in pool if u['cost'] >= 3]
     
-    raw_pool = region_units + targon + versatile_units + expensive_units
-    final_pool = list({v['name']:v for v in raw_pool}.values())
-    final_pool = final_pool[:80]
+    # SỬ DỤNG SYNERGY POOL THAY VÌ LỌC CỨNG
+    final_pool = build_synergy_pool(pool, user_emblems, prioritize_strength)
 
-    limit_max = 1500000
+    limit_max = 2000000
     loop_count = 0
     candidates = []
 
@@ -313,9 +369,10 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
         
         final_r = r_score + (5 if has_galio else 0)
         
+        # --- DYNAMIC SCORING (PURE) ---
         strength_score = 0
         if prioritize_strength:
-            strength_score = team_total_cost * 1.5
+            strength_score = team_total_cost * 2.0 
 
         smart_score = (final_r * 25.0) + \
                       (c_score * 12.0) + \
@@ -399,7 +456,6 @@ if run:
     tab1, tab2, tab3, tab4 = st.tabs(["Low Cost (Eco)", "Standard", "EXODIA", "🔓 UNLOCK RYZE"])
     
     pool_easy_eco = [u for u in STANDARD_UNITS if u['cost'] <= 3] 
-    # DEFINE THE MISSING POOL HERE
     pool_mid = [u for u in ALL_UNITS if u['diff'] <= 2]
 
     # UNLOCK MISSION TAB
@@ -445,7 +501,7 @@ if run:
 
     def render(tab, pool, p_str=False):
         with tab:
-            if p_str: st.caption("Prioritizes Active Regions & No Wasted Slots.")
+            if p_str: st.caption("Prioritizes Strength & High Cost Units.")
             elif pool == pool_easy_eco: st.caption("Uses Cost 1, 2, 3 units for max synergy.")
             
             with st.spinner("Analyzing strategies..."):
@@ -504,9 +560,8 @@ if run:
                 st.warning("No valid team found.")
 
     render(tab1, pool_easy_eco)
-    render(tab2, pool_mid)
+    render(tab2, pool_mid, True) 
     render(tab3, ALL_UNITS, True)
 
 elif not run:
     st.info("👈 Select Level -> Click FIND TEAMS")
-
