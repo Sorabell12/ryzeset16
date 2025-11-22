@@ -18,54 +18,6 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- 2. LANGUAGE DICTIONARY (UPDATED FOR BMC) ---
-TRANS = {
-    "Tiếng Việt": {
-        "title": "🧙‍♂️ TFT Mùa 16: Tool Ryze AI",
-        "subtitle": "**Đa dạng chiến thuật:** Tối ưu hóa toàn diện.",
-        "config": "⚙️ Cấu hình",
-        "level": "Cấp độ (Level):",
-        "btn_find": "🚀 TÌM ĐỘI HÌNH",
-        "emb_region": "🌍 Ấn Vùng Đất (Region Emblems)",
-        "emb_class": "🛡️ Ấn Tộc/Hệ (Class Emblems)",
-        "donate_title": "### ☕ Ủng hộ Dev",
-        "donate_btn": "☕ Buy Me a Coffee", 
-        "tabs": ["Giá Rẻ (Eco)", "Tiêu Chuẩn (Standard)", "EXODIA (Tối Thượng)", "🔓 MỞ KHÓA RYZE"],
-        "mission_info": "🏆 **Nhiệm vụ:** Kích hoạt 5 Vùng Đất để mở khóa Ryze.",
-        "tag_basic": "🟢 **SHOP CƠ BẢN (CÓ SẴN)**",
-        "tag_unlock": "🟠 **CẦN MỞ KHÓA ({})**",
-        "err_unlock": "Không tìm thấy cách kích 5 vùng với số slot hiện tại.",
-        "err_combat": "Không tìm thấy đội hình phù hợp.",
-        "labels": [
-            "👑 Lựa chọn 1: CÂN BẰNG NHẤT (AI Khuyên dùng)",
-            "🌍 Lựa chọn 2",
-            "🛡️ Lựa chọn 3"
-        ]
-    },
-    "English": {
-        "title": "🧙‍♂️ TFT Set 16: Ryze AI Tool",
-        "subtitle": "**Strategic Diversity:** Full Optimization.",
-        "config": "⚙️ Config",
-        "level": "Level:",
-        "btn_find": "🚀 FIND TEAMS",
-        "emb_region": "🌍 Region Emblems",
-        "emb_class": "🛡️ Class/Trait Emblems",
-        "donate_title": "### ☕ Support Dev",
-        "donate_btn": "☕ Buy Me a Coffee",
-        "tabs": ["Low Cost (Eco)", "Standard", "EXODIA", "🔓 UNLOCK RYZE"],
-        "mission_info": "🏆 **Mission:** Activate 5 Regions to Unlock Ryze.",
-        "tag_basic": "🟢 **BASIC SHOP (AVAILABLE)**",
-        "tag_unlock": "🟠 **REQUIRES {} UNLOCK(S)**",
-        "err_unlock": "Cannot find 5 regions with current slots.",
-        "err_combat": "No valid team found.",
-        "labels": [
-            "👑 Option 1: BEST BALANCED (AI Choice)",
-            "🌍 Option 2",
-            "🛡️ Option 3"
-        ]
-    }
-}
-
 # --- DATASETS ---
 REGION_DATA = {
     "Bilgewater":   {"thresholds": [3, 5, 7, 10]}, "Demacia": {"thresholds": [3, 5, 7, 11]},
@@ -213,14 +165,19 @@ def solve_unlock_mission(slots, user_emblems):
     limit_max = 10000000 
     loop_count = 0
 
+    # 1. POOL: Sử dụng TOÀN BỘ tướng để tìm kiếm song song
     region_units = [u for u in ALL_UNITS if any(t in REGION_DATA for t in u['traits'])]
     
+    # 2. SCORING: Ưu tiên Standard (Basic) hơn Unlock
     def get_unlock_score(u):
         score = 0
+        # Tướng Standard được ưu tiên tuyệt đối
         if any(u['name'] == su['name'] for su in STANDARD_UNITS):
             score += 5000
+        # Tướng đa hệ vùng đất (Bridge Units)
         r_count = sum(1 for t in u['traits'] if t in REGION_DATA)
         if r_count >= 2: score += 1000
+        # Tướng trùng Ấn
         for t in u['traits']:
             if t in user_emblems: score += 100
             if t == "Targon": score += 50 
@@ -229,6 +186,7 @@ def solve_unlock_mission(slots, user_emblems):
 
     region_units.sort(key=get_unlock_score, reverse=True)
     
+    # 3. DIVERSITY: Đảm bảo có đủ tướng Standard và Unlock để so sánh
     standard_best = [u for u in region_units if any(u['name'] == su['name'] for su in STANDARD_UNITS)][:28]
     unlock_best = [u for u in region_units if any(u['name'] == uu['name'] for uu in UNLOCKABLE_UNITS)][:10]
     search_pool = standard_best + unlock_best
@@ -270,6 +228,9 @@ def solve_unlock_mission(slots, user_emblems):
             })
             if len(candidates) >= 20: break
     
+    # SẮP XẾP: 1. Số vùng (Cao -> Thấp)
+    # 2. Số lượng Unlock (THẤP NHẤT -> Ưu tiên Basic Shop)
+    # 3. Giá tiền (Thấp -> Cao)
     candidates.sort(key=lambda x: (-x['active_count'], x['unlock_count'], x['cost']))
     return candidates[:5]
 
@@ -303,6 +264,7 @@ def build_synergy_pool(base_pool, user_emblems, prioritize_strength=False):
             final_pool.append(u)
             seen_names.add(u['name'])
 
+    # FORCE PARTNERS FOR HIGH COST UNITS
     high_value_units = [u for u in final_pool if u['cost'] >= 4]
     for hv in high_value_units:
         for t in hv['traits']:
@@ -393,6 +355,7 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
                 elif user_emblems.get(r, 0) > 0:
                     unused_emblem_penalty -= 15
             
+            # CLASS SCORING: Standard (+2) > Unique (+1)
             c_score = 0
             active_classes_set = set()
             for cl, thresholds in CLASS_DATA.items():
@@ -505,7 +468,7 @@ with st.sidebar:
     lang_options = ["English", "Tiếng Việt"] # English Default
     lang_choice = st.selectbox("🌐 Language", lang_options)
     
-    # Dictionary
+    # Dictionary with FULL KEYS (FIXED)
     T = {
         "Tiếng Việt": {
             "title": "🧙‍♂️ TFT Mùa 16: Tool Ryze AI",
@@ -523,10 +486,16 @@ with st.sidebar:
             "tag_unlock": "🟠 **CẦN MỞ KHÓA ({})**",
             "err_unlock": "Không tìm thấy cách kích 5 vùng với số slot hiện tại.",
             "err_combat": "Không tìm thấy đội hình phù hợp.",
+            "spinner_unlock": "Đang tính toán lộ trình rẻ nhất...",
+            "spinner_combat": "Đang tìm đồng đội cho Ryze...",
+            "res_option": "Lựa chọn",
+            "res_regions": "Vùng đất",
+            "res_cost": "Vàng",
+            "active": "**Kích hoạt:**",
             "labels": [
                 "👑 Lựa chọn 1: CÂN BẰNG NHẤT (AI Khuyên dùng)",
-                "🌍 Lựa chọn 2: TỐI ĐA VÙNG ĐẤT (Ryze Max Ping)",
-                "🛡️ Lựa chọn 3: TỐI ĐA TỘC HỆ (Kích nhiều hệ nhất)"
+                "🌍 Lựa chọn 2",
+                "🛡️ Lựa chọn 3"
             ]
         },
         "English": {
@@ -545,6 +514,12 @@ with st.sidebar:
             "tag_unlock": "🟠 **REQUIRES {} UNLOCK(S)**",
             "err_unlock": "Cannot find 5 regions with current slots.",
             "err_combat": "No valid team found.",
+            "spinner_unlock": "Calculating best paths...",
+            "spinner_combat": "Finding teammates for Ryze...",
+            "res_option": "Option",
+            "res_regions": "Regions",
+            "res_cost": "Gold",
+            "active": "**Active:**",
             "labels": [
                 "👑 Option 1: BEST BALANCED (AI Choice)",
                 "🌍 Option 2",
@@ -717,4 +692,3 @@ if run:
 
 elif not run:
     st.info("👈 Select Level -> Click FIND TEAMS")
-
