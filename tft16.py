@@ -38,8 +38,8 @@ TRANS = {
         "err_combat": "Không tìm thấy đội hình phù hợp.",
         "labels": [
             "👑 Lựa chọn 1: CÂN BẰNG NHẤT (AI Khuyên dùng)",
-            "🌍 Lựa chọn 2: TỐI ĐA VÙNG ĐẤT (Ryze Max Ping)",
-            "🛡️ Lựa chọn 3: TỐI ĐA TỘC HỆ (Kích nhiều hệ nhất)"
+            "🌍 Lựa chọn 2",
+            "🛡️ Lựa chọn 3"
         ]
     },
     "English": {
@@ -717,3 +717,4 @@ if run:
 
 elif not run:
     st.info("👈 Select Level -> Click FIND TEAMS")
+
