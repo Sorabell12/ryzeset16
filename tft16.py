@@ -64,6 +64,11 @@ ALL_UNITS = [
     {"name": "Vi", "traits": ["Piltover", "Zaun", "Defender"], "cost": 1, "diff": 1, "role": "tank"},
     {"name": "Xin Zhao", "traits": ["Demacia", "Ionia", "Warden"], "cost": 1, "diff": 1, "role": "tank"},
     {"name": "Yasuo", "traits": ["Ionia", "Slayer"], "cost": 1, "diff": 1, "role": "carry"},
+    {"name": "Poppy", "traits": ["Demacia", "Yordle", "Juggernaut"], "cost": 1, "diff": 1, "role": "tank"},
+    {"name": "Warwick", "traits": ["Zaun", "Quickstriker"], "cost": 1, "diff": 1, "role": "carry"},
+    {"name": "Yone", "traits": ["Ionia", "Slayer"], "cost": 1, "diff": 1, "role": "carry"},
+    {"name": "Fizz", "traits": ["Bilgewater", "Yordle"], "cost": 1, "diff": 2, "role": "carry"},
+
     # 2 COST
     {"name": "Aphelios", "traits": ["Targon"], "cost": 2, "diff": 1, "role": "carry"},
     {"name": "Ashe", "traits": ["Freljord", "Quickstriker"], "cost": 2, "diff": 1, "role": "carry"},
@@ -75,6 +80,12 @@ ALL_UNITS = [
     {"name": "Teemo", "traits": ["Yordle", "Longshot"], "cost": 2, "diff": 1, "role": "carry"},
     {"name": "Tristana", "traits": ["Yordle", "Gunslinger"], "cost": 2, "diff": 1, "role": "carry"},
     {"name": "Twisted Fate", "traits": ["Bilgewater", "Quickstriker"], "cost": 2, "diff": 1, "role": "carry"},
+    {"name": "Bard", "traits": ["Caretaker"], "cost": 2, "diff": 2, "role": "supp"},
+    {"name": "Orianna", "traits": ["Piltover", "Invoker"], "cost": 2, "diff": 2, "role": "supp"},
+    {"name": "Graves", "traits": ["Bilgewater", "Gunslinger"], "cost": 2, "diff": 2, "role": "carry"},
+    {"name": "Yorick", "traits": ["Shadow Isles", "Warden"], "cost": 2, "diff": 2, "role": "tank"},
+    {"name": "Tryndamere", "traits": ["Freljord", "Slayer"], "cost": 2, "diff": 2, "role": "carry"},
+
     # 3 COST
     {"name": "Ahri", "traits": ["Ionia", "Arcanist"], "cost": 3, "diff": 1, "role": "carry"},
     {"name": "Dr. Mundo", "traits": ["Zaun", "Bruiser"], "cost": 3, "diff": 1, "role": "tank"},
@@ -89,7 +100,13 @@ ALL_UNITS = [
     {"name": "Sejuani", "traits": ["Freljord", "Defender"], "cost": 3, "diff": 1, "role": "tank"}, 
     {"name": "Vayne", "traits": ["Demacia", "Longshot"], "cost": 3, "diff": 1, "role": "carry"},
     {"name": "Zoe", "traits": ["Targon"], "cost": 3, "diff": 1, "role": "carry"},
-    
+    {"name": "Kobuko & Yuumi", "traits": ["Yordle", "Bruiser", "Invoker"], "cost": 3, "diff": 2, "role": "tank"},
+    {"name": "Darius", "traits": ["Noxus", "Defender"], "cost": 3, "diff": 2, "role": "tank"},
+    {"name": "Gwen", "traits": ["Shadow Isles", "Disruptor"], "cost": 3, "diff": 2, "role": "carry"},
+    {"name": "LeBlanc", "traits": ["Noxus", "Invoker"], "cost": 3, "diff": 2, "role": "carry"},
+    # UPDATED: Kennen cost 3
+    {"name": "Kennen", "traits": ["Ionia", "Yordle", "Defender"], "cost": 3, "diff": 2, "role": "tank"},
+
     # 4 COST
     {"name": "Taric", "traits": ["Targon"], "cost": 4, "diff": 2, "role": "tank"},
     {"name": "Ambessa", "traits": ["Noxus", "Vanquisher"], "cost": 4, "diff": 2, "role": "carry"},
@@ -103,6 +120,16 @@ ALL_UNITS = [
     {"name": "Swain", "traits": ["Noxus", "Arcanist", "Juggernaut"], "cost": 4, "diff": 2, "role": "tank"},
     {"name": "Wukong", "traits": ["Ionia", "Bruiser"], "cost": 4, "diff": 2, "role": "tank"},
     {"name": "Yunara", "traits": ["Ionia", "Quickstriker"], "cost": 4, "diff": 2, "role": "carry"},
+    {"name": "Nidalee", "traits": ["Ixtal", "Huntress"], "cost": 4, "diff": 2, "role": "carry"},
+    {"name": "Skarner", "traits": ["Ixtal"], "cost": 4, "diff": 2, "role": "tank"},
+    {"name": "Rift Herald", "traits": ["Void", "Bruiser"], "cost": 4, "diff": 2, "role": "tank"},
+    {"name": "Singed", "traits": ["Zaun", "Juggernaut"], "cost": 4, "diff": 2, "role": "tank"},
+    {"name": "Kai'Sa", "traits": ["Void", "Longshot", "Assimilator"], "cost": 4, "diff": 2, "role": "carry"},
+    {"name": "Kalista", "traits": ["Shadow Isles", "Vanquisher"], "cost": 4, "diff": 2, "role": "carry"},
+    {"name": "Nasus", "traits": ["Shurima"], "cost": 4, "diff": 2, "role": "tank"},
+    {"name": "Renekton", "traits": ["Shurima"], "cost": 4, "diff": 2, "role": "tank"},
+    {"name": "Veigar", "traits": ["Yordle", "Arcanist"], "cost": 4, "diff": 3, "role": "carry"},
+    {"name": "Diana", "traits": ["Targon"], "cost": 4, "diff": 2, "role": "carry"},
 
     # 5 COST
     {"name": "Aatrox", "traits": ["Darkin", "Slayer"], "cost": 5, "diff": 3, "role": "carry"},
@@ -114,52 +141,26 @@ ALL_UNITS = [
     {"name": "Ornn", "traits": ["Blacksmith", "Warden"], "cost": 5, "diff": 3, "role": "tank"},
     {"name": "Shyvana", "traits": ["Dragonborn", "Juggernaut"], "cost": 5, "diff": 3, "role": "tank"},
     {"name": "Zilean", "traits": ["Chronokeeper", "Invoker"], "cost": 5, "diff": 3, "role": "supp"},
-
-    # 7 COST
-    
-    # LOWER UNLOCKABLES
-    {"name": "Nidalee", "traits": ["Ixtal", "Huntress"], "cost": 4, "diff": 2, "role": "carry"},
-    {"name": "Skarner", "traits": ["Ixtal"], "cost": 4, "diff": 2, "role": "tank"},
-    {"name": "Rift Herald", "traits": ["Void", "Bruiser"], "cost": 4, "diff": 2, "role": "tank"},
-    {"name": "Singed", "traits": ["Zaun", "Juggernaut"], "cost": 4, "diff": 2, "role": "tank"},
-    {"name": "Kai'Sa", "traits": ["Void", "Longshot", "Assimilator"], "cost": 4, "diff": 2, "role": "carry"},
-    {"name": "Kalista", "traits": ["Shadow Isles", "Vanquisher"], "cost": 4, "diff": 2, "role": "carry"},
-    {"name": "Nasus", "traits": ["Shurima"], "cost": 4, "diff": 2, "role": "tank"},
-    {"name": "Renekton", "traits": ["Shurima"], "cost": 4, "diff": 2, "role": "tank"},
-    {"name": "Veigar", "traits": ["Yordle", "Arcanist"], "cost": 4, "diff": 3, "role": "carry"},
-    {"name": "Diana", "traits": ["Targon"], "cost": 4, "diff": 2, "role": "carry"},
     {"name": "Sett", "traits": ["Ionia", "The Boss"], "cost": 5, "diff": 3, "role": "tank"},
     {"name": "Volibear", "traits": ["Freljord", "Bruiser"], "cost": 5, "diff": 3, "role": "tank"},
     {"name": "Xerath", "traits": ["Shurima", "Ascendant"], "cost": 5, "diff": 3, "role": "carry"},
     {"name": "Mel", "traits": ["Noxus", "Disruptor"], "cost": 5, "diff": 3, "role": "carry"},
     {"name": "Ziggs", "traits": ["Zaun", "Yordle", "Longshot"], "cost": 5, "diff": 3, "role": "carry"},
-    {"name": "Kobuko & Yuumi", "traits": ["Yordle", "Bruiser", "Invoker"], "cost": 3, "diff": 2, "role": "tank"},
-    {"name": "Bard", "traits": ["Caretaker"], "cost": 2, "diff": 2, "role": "supp"},
-    {"name": "Orianna", "traits": ["Piltover", "Invoker"], "cost": 2, "diff": 2, "role": "supp"},
-    {"name": "Poppy", "traits": ["Demacia", "Yordle", "Juggernaut"], "cost": 1, "diff": 1, "role": "tank"},
-    {"name": "Graves", "traits": ["Bilgewater", "Gunslinger"], "cost": 2, "diff": 2, "role": "carry"},
-    {"name": "Yorick", "traits": ["Shadow Isles", "Warden"], "cost": 2, "diff": 2, "role": "tank"},
-    {"name": "Tryndamere", "traits": ["Freljord", "Slayer"], "cost": 2, "diff": 2, "role": "carry"},
-    {"name": "Darius", "traits": ["Noxus", "Defender"], "cost": 3, "diff": 2, "role": "tank"},
-    {"name": "Gwen", "traits": ["Shadow Isles", "Disruptor"], "cost": 3, "diff": 2, "role": "carry"},
-    {"name": "Kennen", "traits": ["Ionia", "Yordle", "Defender"], "cost": 1, "diff": 1, "role": "tank"},
-    {"name": "LeBlanc", "traits": ["Noxus", "Invoker"], "cost": 3, "diff": 2, "role": "carry"},
-    {"name": "Fizz", "traits": ["Bilgewater", "Yordle"], "cost": 1, "diff": 2, "role": "carry"},
-    {"name": "Warwick", "traits": ["Zaun", "Quickstriker"], "cost": 1, "diff": 1, "role": "carry"},
-    {"name": "Yone", "traits": ["Ionia", "Slayer"], "cost": 1, "diff": 1, "role": "carry"},
 ]
 
-# --- UNLOCK ALGORITHM (THE MISSING FUNCTION) ---
+# --- UNLOCK ALGORITHM (FIXED) ---
 def solve_unlock_mission(pool, slots, user_emblems):
     candidates = []
-    limit_max = 500000 
+    limit_max = 2000000 
     loop_count = 0
 
     # Filter pool for Unlock mission (Focus on Units with Regions)
     region_units = [u for u in pool if any(t in REGION_DATA for t in u['traits'])]
     # Prefer cheaper units for easier unlock
     region_units.sort(key=lambda x: x['cost'])
-    search_pool = region_units[:20]
+    
+    # Expanded search pool to include higher cost units (was 20, now 35)
+    search_pool = region_units[:35]
 
     for team in itertools.combinations(search_pool, slots):
         loop_count += 1
@@ -192,13 +193,13 @@ def solve_unlock_mission(pool, slots, user_emblems):
                 "regions": active_list
             })
             # Early exit optimization
-            if len(candidates) >= 5 and total_cost < 25: break
+            if len(candidates) >= 5 and total_cost < 30: break
     
     # Sort by: Max Regions DESC, then Min Cost ASC
     candidates.sort(key=lambda x: (-x['active_count'], x['cost']))
     return candidates[:3]
 
-# --- MAIN ALGORITHM ---
+# --- MAIN ALGORITHM (FIXED LOGIC FOR STRENGTH) ---
 def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False):
     region_units = [u for u in pool if any(t in REGION_DATA for t in u['traits'])]
     targon = [u for u in pool if "Targon" in u['traits']]
@@ -211,8 +212,9 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
         raw_pool = high_cost + mid_cost + efficient_low + targon
         final_pool = list({v['name']:v for v in raw_pool}.values())
         # Sort by Taric > Cost > Efficiency
-        final_pool.sort(key=lambda x: 100 if x['name'] == "Taric" else (x['cost'] + (1 if len(x['traits'])>=3 else 0)), reverse=True)
-        final_pool = final_pool[:35] 
+        final_pool.sort(key=lambda x: 100 if x['name'] == "Taric" else (x['cost'] * 2 + (1 if len(x['traits'])>=3 else 0)), reverse=True)
+        # Increased pool size to ensure 4-costs like Braum are included
+        final_pool = final_pool[:40] 
     else:
         low_cost_all = [u for u in pool if u['cost'] <= 3] 
         final_pool = low_cost_all 
@@ -232,7 +234,11 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
         tank_count = 0
         names = [u['name'] for u in team]
         
+        # Calculate Team Cost for Strength Tie-breaking
+        team_total_cost = 0
+
         for u in team:
+            team_total_cost += u.get('cost', 1)
             if u.get('role') == 'tank': tank_count += 1
             for t in u['traits']:
                 traits[t] = traits.get(t, 0) + 1
@@ -276,14 +282,14 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
                 c_score += 1
                 active_classes_set.add(cl)
         
-        # DEADWEIGHT CHECK (NO GOD TIER EXCEPTION)
+        # DEADWEIGHT CHECK
         useless_unit_penalty = 0
         
         # 1. TARGON RULE
         targon_c = traits.get("Targon", 0)
-        if targon_c == 1: useless_unit_penalty += 50 # Bonus for exactly 1
-        elif targon_c > 1: useless_unit_penalty -= 20 # Penalty for >1
-        elif targon_c == 0: useless_unit_penalty -= 100 # Penalty for 0 (Ryze needs it)
+        if targon_c == 1: useless_unit_penalty += 50
+        elif targon_c > 1: useless_unit_penalty -= 20
+        elif targon_c == 0: useless_unit_penalty -= 100 
         
         for u in final_team:
             if u['name'] in ["Ryze", "Galio", "Taric", "Ornn"]: continue
@@ -296,7 +302,6 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
                     break
             
             has_any_region_trait = any(t in REGION_DATA for t in u['traits'])
-            # DEADWEIGHT: Has region but not active
             if has_any_region_trait and not is_active_region:
                 useless_unit_penalty -= 50 
 
@@ -324,8 +329,12 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
         
         final_r = r_score + (5 if has_galio else 0)
         
-        # SMART SCORE
-        smart_score = (final_r * 25.0) + (c_score * 5.0) + balance_penalty + unused_emblem_penalty + targon_bonus + annie_penalty + useless_unit_penalty
+        # SMART SCORE UPDATE: Added Cost Bonus to break ties for better units (Sejuani > Anivia)
+        cost_bonus = 0
+        if prioritize_strength:
+            cost_bonus = team_total_cost * 0.5
+
+        smart_score = (final_r * 25.0) + (c_score * 5.0) + balance_penalty + unused_emblem_penalty + targon_bonus + annie_penalty + useless_unit_penalty + cost_bonus
         
         r_list_fmt = [f"{r}({traits[r]})" for r in REGION_DATA if traits.get(r,0) >= REGION_DATA[r]['thresholds'][0]]
         c_list_fmt = [f"{c}({traits[c]})" for c in CLASS_DATA if traits.get(c,0) >= CLASS_DATA[c][0] and c not in UNIQUE_TRAITS]
@@ -400,8 +409,6 @@ with st.sidebar:
                 v = st.number_input(k, 0, 3, key=k)
                 if v: user_emblems[k]=v
 
-# ... (Code phía trên giữ nguyên)
-
 if run:
     slots = level - 1
     tab1, tab2, tab3, tab4 = st.tabs(["Low Cost (Eco)", "Standard", "EXODIA", "🔓 UNLOCK RYZE"])
@@ -416,9 +423,7 @@ if run:
         unlock_pool_basic = [u for u in ALL_UNITS if u['diff'] == 1]
         unlock_pool_mixed = [u for u in ALL_UNITS if u['diff'] <= 2]
         
-        # --- HÀM render_unlock ĐƯỢC ĐỊNH NGHĨA TẠI ĐÂY ---
         def render_unlock(sub_tab, u_pool):
-            # [QUAN TRỌNG] Dòng with này phải thụt vào so với def
             with sub_tab:
                 with st.spinner("Calculating cheapest 5-Region comps..."):
                     res = solve_unlock_mission(u_pool, level, user_emblems) 
@@ -450,11 +455,9 @@ if run:
                 else:
                     st.error("Cannot find 5 regions.")
         
-        # --- GỌI HÀM (Thẳng hàng với def) ---
         render_unlock(sub1, unlock_pool_basic)
         render_unlock(sub2, unlock_pool_mixed)
 
-    # --- CÁC TAB KHÁC (Thẳng hàng với with tab4) ---
     def render(tab, pool, p_str=False):
         with tab:
             if p_str: st.caption("Prioritizes Active Regions & No Wasted Slots.")
@@ -521,5 +524,3 @@ if run:
 
 elif not run:
     st.info("👈 Select Level -> Click FIND TEAMS")
-
-
