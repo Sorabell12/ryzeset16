@@ -27,12 +27,16 @@ REGION_DATA = {
     "Zaun":         {"thresholds": [3, 5, 7]}
 }
 
+# MERGED DATA: Unique traits are now part of CLASS_DATA to prevent duplication bugs
 CLASS_DATA = {
+    # Normal Classes
     "Bruiser": [2, 4, 6], "Defender": [2, 4, 6], "Invoker": [2, 4, 6],
     "Slayer": [2, 4, 6], "Gunslinger": [2, 4, 6], "Arcanist": [2, 4, 6],
     "Warden": [2, 3, 4, 5], "Juggernaut": [2, 4, 6], "Longshot": [2, 3, 4, 5],
     "Quickstriker": [2, 3, 4, 5], "Disruptor": [2, 4], "Vanquisher": [2, 3, 4, 5],
     "Darkin": [1, 2, 3],
+    
+    # Unique Traits (1/1)
     "Heroic": [1], "The Boss": [1], "Emperor": [1], "Ascendant": [1], 
     "Star Forger": [1], "Caretaker": [1], "Rune Mage": [1], "Assimilator": [1],
     "Huntress": [1], "Glutton": [1], "Blacksmith": [1], "Soulbound": [1],
@@ -41,7 +45,8 @@ CLASS_DATA = {
     "Immortal": [1]
 }
 
-UNIQUE_TRAITS = [
+# List for coloring
+UNIQUE_TRAITS_LIST = [
     "Heroic", "The Boss", "Emperor", "Ascendant", "Star Forger", "Caretaker", 
     "Rune Mage", "Assimilator", "Huntress", "Glutton", "Blacksmith", "Soulbound", 
     "Eternal", "Dragonborn", "Chronokeeper", "Dark Child", "Harvester", "HexMech",
@@ -50,6 +55,7 @@ UNIQUE_TRAITS = [
 
 GALIO_UNIT = {"name": "Galio", "traits": ["Demacia", "Invoker", "Heroic"], "cost": 5, "diff": 3, "role": "tank"}
 
+# --- FULL UNIT ROSTER ---
 ALL_UNITS = [
     # 1 COST
     {"name": "Anivia", "traits": ["Freljord", "Invoker"], "cost": 1, "diff": 1, "role": "carry"},
@@ -137,8 +143,8 @@ ALL_UNITS = [
     {"name": "Ziggs", "traits": ["Zaun", "Yordle", "Longshot"], "cost": 5, "diff": 3, "role": "carry"},
 
     # 7 COST
-    
-    # LOWER UNLOCKABLES
+
+    # LOWER UNLOCKABLES (Common)
     {"name": "Bard", "traits": ["Caretaker"], "cost": 2, "diff": 2, "role": "supp"},
     {"name": "Orianna", "traits": ["Piltover", "Invoker"], "cost": 2, "diff": 2, "role": "supp"},
     {"name": "Poppy", "traits": ["Demacia", "Yordle", "Juggernaut"], "cost": 1, "diff": 1, "role": "tank"},
@@ -167,7 +173,9 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
         
         raw_pool = high_cost + mid_cost + efficient_low + targon
         final_pool = list({v['name']:v for v in raw_pool}.values())
-        final_pool.sort(key=lambda x: x['cost'] + (1 if len(x['traits'])>=3 else 0), reverse=True)
+        
+        # Force Taric into priority list
+        final_pool.sort(key=lambda x: 100 if x['name'] == "Taric" else (x['cost'] + (1 if len(x['traits'])>=3 else 0)), reverse=True)
         final_pool = final_pool[:35] 
     else:
         connectors = [u for u in region_units if len([t for t in u['traits'] if t in REGION_DATA]) >= 2]
@@ -191,13 +199,14 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
             if u.get('role') == 'tank': tank_count += 1
             for t in u['traits']:
                 traits[t] = traits.get(t, 0) + 1
-            if u['name'] == "Annie": # Tibbers Effect
+            # ANNIE FIX
+            if u['name'] == "Annie":
                 traits['Arcanist'] = traits.get('Arcanist', 0) + 1
                 
         for emb, count in user_emblems.items():
             traits[emb] = traits.get(emb, 0) + count
         
-        # Galio
+        # Galio Logic
         has_galio = False
         final_team = list(team)
         if traits.get("Demacia", 0) >= 6:
@@ -206,62 +215,59 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
             tank_count += 1
             for t in GALIO_UNIT['traits']: traits[t] = traits.get(t, 0) + 1
         
+        # 1. Region Score (Priority)
         r_score = 0
         unused_emblem_penalty = 0
+        active_regions = []
+        
         for r, data in REGION_DATA.items():
             if traits.get(r, 0) >= data['thresholds'][0]: 
                 r_score += 1
+                active_regions.append(r)
             elif user_emblems.get(r, 0) > 0:
-                unused_emblem_penalty -= 15
+                unused_emblem_penalty -= 15 # Severe penalty for unused emblems
         
+        # 2. Useless 5-Cost Penalty (Azir without Shurima is useless)
+        useless_5_cost_penalty = 0
+        for u in final_team:
+            if u['cost'] >= 5 and u['name'] != "Ryze":
+                # Check if unit has ANY active region
+                has_active_region = False
+                for t in u['traits']:
+                    if t in active_regions:
+                        has_active_region = True
+                        break
+                if not has_active_region:
+                    useless_5_cost_penalty -= 50 # KICK THEM OUT
+
+        # 3. Class Score
         c_score = 0
         for cl, thresholds in CLASS_DATA.items():
             if traits.get(cl, 0) >= thresholds[0]: c_score += 1
             
-        for u_trait in UNIQUE_TRAITS:
-            if traits.get(u_trait, 0) >= 1:
-                unit_with_trait = next((u for u in final_team if u_trait in u['traits']), None)
-                if unit_with_trait:
-                    is_supported = False
-                    for other_t in unit_with_trait['traits']:
-                        if other_t == u_trait: continue
-                        if other_t in REGION_DATA and traits.get(other_t, 0) >= REGION_DATA[other_t]['thresholds'][0]: is_supported = True
-                        if other_t in CLASS_DATA and traits.get(other_t, 0) >= CLASS_DATA[other_t][0]: is_supported = True
-                    if is_supported: c_score += 1
+        # 4. Taric / Targon Priority
+        targon_bonus = 0
+        if traits.get("Targon", 0) >= 1: targon_bonus += 5
+        if "Taric" in names: targon_bonus += 20 # MUST HAVE TARIC
 
+        # 5. Balance & Slot Tax
         balance_penalty = 0
         if tank_count < 2: balance_penalty = -5 
         elif tank_count < 3 and slots >= 8: balance_penalty = -2
         
-        # --- SLOT TAX FOR ANNIE ---
         annie_penalty = 0
-        if "Annie" in names:
-            annie_penalty = -12 # Heavy penalty for taking 2 slots
-        
-        targon_bonus = 3 if traits.get("Targon", 0) >= 1 else 0
-        if "Taric" in names: targon_bonus += 3
+        if "Annie" in names: annie_penalty = -12
         
         final_r = r_score + (5 if has_galio else 0)
         
-        # Smart Score updated with Annie Penalty
-        smart_score = (final_r * 3.5) + c_score + balance_penalty + unused_emblem_penalty + targon_bonus + annie_penalty
+        # SMART SCORE
+        # Region * 5 (Was 3.5) to maximize Region usage
+        smart_score = (final_r * 5.0) + c_score + balance_penalty + unused_emblem_penalty + targon_bonus + annie_penalty + useless_5_cost_penalty
         
+        # Formatter
         r_list_fmt = [f"{r}({traits[r]})" for r in REGION_DATA if traits.get(r,0) >= REGION_DATA[r]['thresholds'][0]]
         c_list_fmt = [f"{c}({traits[c]})" for c in CLASS_DATA if traits.get(c,0) >= CLASS_DATA[c][0]]
         
-        for u_trait in UNIQUE_TRAITS:
-            if traits.get(u_trait, 0) >= 1:
-                unit_with_trait = next((u for u in final_team if u_trait in u['traits']), None)
-                if unit_with_trait:
-                    is_supported = False
-                    for other_t in unit_with_trait['traits']:
-                        if other_t == u_trait: continue
-                        if other_t in REGION_DATA and traits.get(other_t, 0) >= REGION_DATA[other_t]['thresholds'][0]: is_supported = True
-                        if other_t in CLASS_DATA and traits.get(other_t, 0) >= CLASS_DATA[other_t][0]: is_supported = True
-                    if is_supported: c_list_fmt.append(f"{u_trait}")
-        
-        if traits.get("Darkin", 0) >= 1: c_list_fmt.append(f"Darkin({traits['Darkin']})")
-
         candidates.append({
             "team": final_team,
             "r_score": final_r,
@@ -297,7 +303,7 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
 
 # --- UI ---
 st.title("🧙‍♂️ TFT Set 16: Ryze AI Tool")
-st.markdown("**Strategic Diversity:** Targon Priority + Annie Slot Tax.")
+st.markdown("**Strategic Diversity:** Taric Enforcer + Region Priority.")
 
 with st.sidebar:
     st.header("⚙️ Config")
@@ -328,7 +334,7 @@ if run:
     
     def render(tab, pool, p_str=False):
         with tab:
-            if p_str: st.caption("Prioritizes **Taric/Targon** & Slot Efficiency.")
+            if p_str: st.caption("Prioritizes **Taric**, Active Regions & High Value Units.")
             with st.spinner("Analyzing strategies..."):
                 res = solve_three_strategies(pool, slots, user_emblems, p_str)
             
@@ -367,7 +373,7 @@ if run:
                             
                             for t in u['traits']:
                                 if "Targon" in t: traits_html.append(f"<span style='color:#9C27B0'><b>{t}</b></span>")
-                                elif t in UNIQUE_TRAITS or t == "Darkin": traits_html.append(f"<span style='color:#B8860B'><b>{t}</b></span>")
+                                elif t in UNIQUE_TRAITS_LIST or t == "Darkin": traits_html.append(f"<span style='color:#B8860B'><b>{t}</b></span>")
                                 elif any(t in x for x in r_l): traits_html.append(f"<span style='color:#2E7D32'><b>{t}</b></span>")
                                 elif any(t in x for x in c_l): traits_html.append(f"<span style='color:#E65100'><b>{t}</b></span>")
                                 else: traits_html.append(f"<span style='color:#555'>{t}</span>")
