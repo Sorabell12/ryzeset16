@@ -17,6 +17,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- DATASETS ---
+# Region Data (Ryze Buff Sources)
 REGION_DATA = {
     "Bilgewater":   {"thresholds": [3, 5, 7, 10]}, "Demacia": {"thresholds": [3, 5, 7, 11]},
     "Freljord":     {"thresholds": [3, 5, 7]}, "Ionia": {"thresholds": [3, 5, 7, 10]},
@@ -27,16 +28,37 @@ REGION_DATA = {
     "Zaun":         {"thresholds": [3, 5, 7]}
 }
 
+# Class Data (Team Synergies)
 CLASS_DATA = {
+    # Combat Classes
     "Bruiser": [2, 4, 6], "Defender": [2, 4, 6], "Invoker": [2, 4, 6],
     "Slayer": [2, 4, 6], "Gunslinger": [2, 4, 6], "Arcanist": [2, 4, 6],
     "Warden": [2, 3, 4, 5], "Juggernaut": [2, 4, 6], "Longshot": [2, 3, 4, 5],
     "Quickstriker": [2, 3, 4, 5], "Disruptor": [2, 4], "Vanquisher": [2, 3, 4, 5],
-    "Heroic": [1]
+    
+    # Darkin (1/2/3) - Special Synergy
+    "Darkin": [1, 2, 3],
+
+    # Unique Traits (1/1)
+    "Heroic": [1], "The Boss": [1], "Emperor": [1], "Ascendant": [1], 
+    "Star Forger": [1], "Caretaker": [1], "Rune Mage": [1], "Assimilator": [1],
+    "Huntress": [1], "Glutton": [1], "Blacksmith": [1], "Soulbound": [1],
+    "Eternal": [1], "Dragonborn": [1], "Chronokeeper": [1], "Dark Child": [1],
+    "Harvester": [1], "HexMech": [1], "Chainbreaker": [1], "Riftscourge": [1],
+    "Immortal": [1]
 }
+
+# Highlight Colors for Unique Traits
+UNIQUE_TRAITS = [
+    "Heroic", "The Boss", "Emperor", "Ascendant", "Star Forger", "Caretaker", 
+    "Rune Mage", "Assimilator", "Huntress", "Glutton", "Blacksmith", "Soulbound", 
+    "Eternal", "Dragonborn", "Chronokeeper", "Dark Child", "Harvester", "HexMech",
+    "Chainbreaker", "Riftscourge", "Immortal"
+]
 
 GALIO_UNIT = {"name": "Galio", "traits": ["Demacia", "Invoker", "Heroic"], "cost": 5, "diff": 3, "role": "tank"}
 
+# --- FULL UNIT ROSTER ---
 ALL_UNITS = [
     # 1 COST
     {"name": "Anivia", "traits": ["Freljord", "Invoker"], "cost": 1, "diff": 1, "role": "carry"},
@@ -81,6 +103,8 @@ ALL_UNITS = [
     {"name": "Sejuani", "traits": ["Freljord", "Defender"], "cost": 3, "diff": 1, "role": "tank"}, 
     {"name": "Vayne", "traits": ["Demacia", "Longshot"], "cost": 3, "diff": 1, "role": "carry"},
     {"name": "Zoe", "traits": ["Targon"], "cost": 3, "diff": 1, "role": "carry"},
+    {"name": "Kobuko & Yuumi", "traits": ["Yordle", "Bruiser", "Invoker"], "cost": 3, "diff": 2, "role": "tank"},
+    
     # 4 COST
     {"name": "Ambessa", "traits": ["Noxus", "Vanquisher"], "cost": 4, "diff": 2, "role": "carry"},
     {"name": "Bel'Veth", "traits": ["Void", "Slayer"], "cost": 4, "diff": 2, "role": "carry"},
@@ -94,7 +118,19 @@ ALL_UNITS = [
     {"name": "Taric", "traits": ["Targon"], "cost": 4, "diff": 2, "role": "tank"},
     {"name": "Wukong", "traits": ["Ionia", "Bruiser"], "cost": 4, "diff": 2, "role": "tank"},
     {"name": "Yunara", "traits": ["Ionia", "Quickstriker"], "cost": 4, "diff": 2, "role": "carry"},
-    # 5 COST & SHOP
+    {"name": "Nidalee", "traits": ["Ixtal", "Huntress"], "cost": 4, "diff": 2, "role": "carry"},
+    {"name": "Skarner", "traits": ["Ixtal"], "cost": 4, "diff": 2, "role": "tank"},
+    {"name": "Rift Herald", "traits": ["Void", "Bruiser"], "cost": 4, "diff": 2, "role": "tank"},
+    {"name": "Singed", "traits": ["Zaun", "Juggernaut"], "cost": 4, "diff": 2, "role": "tank"},
+    {"name": "Kai'Sa", "traits": ["Void", "Longshot", "Assimilator"], "cost": 4, "diff": 2, "role": "carry"},
+    {"name": "Kalista", "traits": ["Shadow Isles", "Vanquisher"], "cost": 4, "diff": 2, "role": "carry"},
+    {"name": "Nasus", "traits": ["Shurima"], "cost": 4, "diff": 2, "role": "tank"},
+    {"name": "Renekton", "traits": ["Shurima"], "cost": 4, "diff": 2, "role": "tank"},
+    {"name": "Veigar", "traits": ["Yordle", "Arcanist"], "cost": 4, "diff": 3, "role": "carry"},
+    {"name": "Diana", "traits": ["Targon"], "cost": 4, "diff": 2, "role": "carry"},
+
+    # 5 COST (UPDATED WITH UNIQUE TRAITS & DARKIN)
+    {"name": "Aatrox", "traits": ["Darkin", "Slayer"], "cost": 5, "diff": 3, "role": "carry"},
     {"name": "Annie", "traits": ["Dark Child", "Arcanist"], "cost": 5, "diff": 3, "role": "carry"},
     {"name": "Azir", "traits": ["Shurima", "Emperor", "Disruptor"], "cost": 5, "diff": 3, "role": "carry"},
     {"name": "Fiddlesticks", "traits": ["Harvester", "Vanquisher"], "cost": 5, "diff": 3, "role": "carry"},
@@ -104,13 +140,14 @@ ALL_UNITS = [
     {"name": "Shyvana", "traits": ["Dragonborn", "Juggernaut"], "cost": 5, "diff": 3, "role": "tank"},
     {"name": "Zilean", "traits": ["Chronokeeper", "Invoker"], "cost": 5, "diff": 3, "role": "supp"},
 
-    # 7 COST
-    # UNLOCKABLES
-    {"name": "Aatrox", "traits": ["Darkin", "Slayer"], "cost": 5, "diff": 3, "role": "carry"},
+    # 7 COST (UPDATED ZAAHEN WITH DARKIN)
+    
+    # UNLOCKABLES (Common)
     {"name": "Sett", "traits": ["Ionia", "The Boss"], "cost": 5, "diff": 3, "role": "tank"},
     {"name": "Volibear", "traits": ["Freljord", "Bruiser"], "cost": 5, "diff": 3, "role": "tank"},
     {"name": "Xerath", "traits": ["Shurima", "Ascendant"], "cost": 5, "diff": 3, "role": "carry"},
     {"name": "Mel", "traits": ["Noxus", "Disruptor"], "cost": 5, "diff": 3, "role": "carry"},
+    {"name": "Ziggs", "traits": ["Zaun", "Yordle", "Longshot"], "cost": 5, "diff": 3, "role": "carry"},
     {"name": "Bard", "traits": ["Caretaker"], "cost": 2, "diff": 2, "role": "supp"},
     {"name": "Orianna", "traits": ["Piltover", "Invoker"], "cost": 2, "diff": 2, "role": "supp"},
     {"name": "Poppy", "traits": ["Demacia", "Yordle", "Juggernaut"], "cost": 1, "diff": 1, "role": "tank"},
@@ -121,14 +158,7 @@ ALL_UNITS = [
     {"name": "Gwen", "traits": ["Shadow Isles", "Disruptor"], "cost": 3, "diff": 2, "role": "carry"},
     {"name": "Kennen", "traits": ["Ionia", "Yordle", "Defender"], "cost": 1, "diff": 1, "role": "tank"},
     {"name": "LeBlanc", "traits": ["Noxus", "Invoker"], "cost": 3, "diff": 2, "role": "carry"},
-    {"name": "Diana", "traits": ["Targon"], "cost": 4, "diff": 2, "role": "carry"},
     {"name": "Fizz", "traits": ["Bilgewater", "Yordle"], "cost": 1, "diff": 2, "role": "carry"},
-    {"name": "Kai'Sa", "traits": ["Void", "Longshot", "Assimilator"], "cost": 4, "diff": 2, "role": "carry"},
-    {"name": "Kalista", "traits": ["Shadow Isles", "Vanquisher"], "cost": 4, "diff": 2, "role": "carry"},
-    {"name": "Nasus", "traits": ["Shurima"], "cost": 4, "diff": 2, "role": "tank"},
-    {"name": "Renekton", "traits": ["Shurima"], "cost": 4, "diff": 2, "role": "tank"},
-    {"name": "Singed", "traits": ["Zaun", "Juggernaut"], "cost": 4, "diff": 2, "role": "tank"},
-    {"name": "Veigar", "traits": ["Yordle", "Arcanist"], "cost": 4, "diff": 3, "role": "carry"},
     {"name": "Warwick", "traits": ["Zaun", "Quickstriker"], "cost": 1, "diff": 1, "role": "carry"},
     {"name": "Yone", "traits": ["Ionia", "Slayer"], "cost": 1, "diff": 1, "role": "carry"},
 ]
@@ -174,7 +204,7 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
         for emb, count in user_emblems.items():
             traits[emb] = traits.get(emb, 0) + count
         
-        # Galio
+        # Galio Logic
         has_galio = False
         final_team = list(team)
         if traits.get("Demacia", 0) >= 5:
@@ -190,7 +220,13 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
         c_score = 0
         for cl, thresholds in CLASS_DATA.items():
             if traits.get(cl, 0) >= thresholds[0]: c_score += 1
-            elif cl == "Heroic" and traits.get(cl, 0) >= 1: c_score += 1
+            
+        # Unique Traits Check (Corrected Logic)
+        for trait_name in UNIQUE_TRAITS:
+             if traits.get(trait_name, 0) >= 1: c_score += 1
+        
+        # Darkin Check (1/2/3)
+        if traits.get("Darkin", 0) >= 1: c_score += 1
 
         balance_penalty = 0
         if tank_count < 2: balance_penalty = -5 
@@ -199,16 +235,20 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
         final_r = r_score + (5 if has_galio else 0)
         
         r_list_fmt = [f"{r}({traits[r]})" for r in REGION_DATA if traits.get(r,0) >= REGION_DATA[r]['thresholds'][0]]
-        c_list_fmt = [f"{c}({traits[c]})" for c in CLASS_DATA if traits.get(c,0) >= CLASS_DATA[c][0] or (c=="Heroic" and traits.get(c,0)>=1)]
+        c_list_fmt = [f"{c}({traits[c]})" for c in CLASS_DATA if traits.get(c,0) >= CLASS_DATA[c][0]]
         
-        # Smart Score (Balanced)
-        # We weight Regions higher, but balance matters
+        # Append Unique/Darkin to display list
+        for u_trait in UNIQUE_TRAITS:
+            if traits.get(u_trait, 0) >= 1: c_list_fmt.append(f"{u_trait}")
+        if traits.get("Darkin", 0) >= 1: c_list_fmt.append(f"Darkin({traits['Darkin']})")
+
         smart_score = (final_r * 1.5) + c_score + balance_penalty
         
         candidates.append({
             "team": final_team,
-            "r_score": final_r, # Used for Opt 2
-            "smart_score": smart_score, # Used for Opt 1 and Opt 3 (Alternative)
+            "r_score": final_r,
+            "c_score": c_score,
+            "smart_score": smart_score,
             "r_list": r_list_fmt,
             "c_list": c_list_fmt,
             "galio": has_galio,
@@ -217,29 +257,23 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
 
     if not candidates: return []
     
-    # --- SELECTION LOGIC RESTORED ---
-    
-    # 1. Best Balanced (Smart Score)
+    # 1. Balanced
     candidates.sort(key=lambda x: x['smart_score'], reverse=True)
     opt1 = candidates[0]
     
-    # 2. Max Regions (Focus purely on R_SCORE, then smart score)
+    # 2. Max Regions
     candidates.sort(key=lambda x: (x['r_score'], x['smart_score']), reverse=True)
     opt2 = candidates[0]
-    # Force Opt2 to be distinct from Opt1 if possible
     if opt2['team'] == opt1['team']:
         for cand in candidates:
             if cand['team'] != opt1['team']:
                 opt2 = cand
                 break
     
-    # 3. Alternative Variation (Use Smart Score, but find distinct team)
-    # Reset sort to Smart Score
+    # 3. Max Alternative
     candidates.sort(key=lambda x: x['smart_score'], reverse=True)
-    opt3 = candidates[0] # Default fallback
-    
+    opt3 = candidates[0]
     for cand in candidates:
-        # Find first candidate that is NOT Opt1 AND NOT Opt2
         if cand['team'] != opt1['team'] and cand['team'] != opt2['team']:
             opt3 = cand
             break
@@ -314,6 +348,7 @@ if run:
                             traits_html = []
                             for t in u['traits']:
                                 if "Targon" in t: traits_html.append(f"<span style='color:#9C27B0'><b>{t}</b></span>")
+                                elif t in UNIQUE_TRAITS or t == "Darkin": traits_html.append(f"<span style='color:#B8860B'><b>{t}</b></span>")
                                 elif any(t in x for x in r_l): traits_html.append(f"<span style='color:#2E7D32'><b>{t}</b></span>")
                                 elif any(t in x for x in c_l): traits_html.append(f"<span style='color:#E65100'><b>{t}</b></span>")
                                 else: traits_html.append(f"<span style='color:#555'>{t}</span>")
