@@ -45,9 +45,7 @@ UNIQUE_TRAITS = list(CLASS_DATA.keys())[-22:]
 
 GALIO_UNIT = {"name": "Galio", "traits": ["Demacia", "Invoker", "Heroic"], "cost": 5, "diff": 3, "role": "tank"}
 
-# --- UNIT LISTS (CLEANED & SEPARATED) ---
-
-# 1. STANDARD UNITS (Available from start - NO UNLOCKABLES HERE)
+# --- UNIT LISTS (FINAL CORRECTED) ---
 STANDARD_UNITS = [
     # 1 COST
     {"name": "Anivia", "traits": ["Freljord", "Invoker"], "cost": 1, "diff": 1, "role": "carry"},
@@ -66,9 +64,6 @@ STANDARD_UNITS = [
     {"name": "Viego", "traits": ["Shadow Isles", "Quickstriker"], "cost": 1, "diff": 1, "role": "carry"},
 
     # 2 COST
-    {"name": "Vi", "traits": ["Piltover", "Zaun", "Defender"], "cost": 2, "diff": 1, "role": "tank"},
-    {"name": "Xin Zhao", "traits": ["Demacia", "Ionia", "Warden"], "cost": 2, "diff": 1, "role": "tank"},
-    {"name": "Yasuo", "traits": ["Ionia", "Slayer"], "cost": 2, "diff": 1, "role": "carry"},
     {"name": "Aphelios", "traits": ["Targon"], "cost": 2, "diff": 1, "role": "carry"},
     {"name": "Ashe", "traits": ["Freljord", "Quickstriker"], "cost": 2, "diff": 1, "role": "carry"},
     {"name": "Cho'Gath", "traits": ["Void", "Juggernaut"], "cost": 2, "diff": 1, "role": "tank"},
@@ -79,6 +74,9 @@ STANDARD_UNITS = [
     {"name": "Teemo", "traits": ["Yordle", "Longshot"], "cost": 2, "diff": 1, "role": "carry"},
     {"name": "Tristana", "traits": ["Yordle", "Gunslinger"], "cost": 2, "diff": 1, "role": "carry"},
     {"name": "Twisted Fate", "traits": ["Bilgewater", "Quickstriker"], "cost": 2, "diff": 1, "role": "carry"},
+    {"name": "Vi", "traits": ["Piltover", "Zaun", "Defender"], "cost": 2, "diff": 1, "role": "tank"},
+    {"name": "Xin Zhao", "traits": ["Demacia", "Ionia", "Warden"], "cost": 2, "diff": 1, "role": "tank"},
+    {"name": "Yasuo", "traits": ["Ionia", "Slayer"], "cost": 2, "diff": 1, "role": "carry"},
 
     # 3 COST
     {"name": "Ahri", "traits": ["Ionia", "Arcanist"], "cost": 3, "diff": 1, "role": "carry"},
@@ -110,6 +108,7 @@ STANDARD_UNITS = [
     {"name": "Yunara", "traits": ["Ionia", "Quickstriker"], "cost": 4, "diff": 2, "role": "carry"},
 
     # 5 COST
+    {"name": "Aatrox", "traits": ["Darkin", "Slayer"], "cost": 5, "diff": 3, "role": "carry"},
     {"name": "Annie", "traits": ["Dark Child", "Arcanist"], "cost": 5, "diff": 3, "role": "carry"},
     {"name": "Azir", "traits": ["Shurima", "Emperor", "Disruptor"], "cost": 5, "diff": 3, "role": "carry"},
     {"name": "Fiddlesticks", "traits": ["Harvester", "Vanquisher"], "cost": 5, "diff": 3, "role": "carry"},
@@ -120,10 +119,10 @@ STANDARD_UNITS = [
     {"name": "Zilean", "traits": ["Chronokeeper", "Invoker"], "cost": 5, "diff": 3, "role": "supp"}
 ]
 
-# 2. UNLOCKABLE UNITS (Poppy, Vi, Xin Zhao, etc. ARE HERE)
+# 2. UNLOCKABLE UNITS
 UNLOCKABLE_UNITS = [
     # 2 COST
-    {"name": "Poppy", "traits": ["Demacia", "Yordle", "Juggernaut"], "cost": 2, "diff": 2, "role": "tank"},
+    {"name": "Poppy", "traits": ["Demacia", "Yordle", "Juggernaut"], "cost": 2, "diff": 1, "role": "tank"},
     {"name": "Bard", "traits": ["Caretaker"], "cost": 2, "diff": 2, "role": "supp"},
     {"name": "Orianna", "traits": ["Piltover", "Invoker"], "cost": 2, "diff": 2, "role": "supp"},
     {"name": "Graves", "traits": ["Bilgewater", "Gunslinger"], "cost": 2, "diff": 2, "role": "carry"},
@@ -153,7 +152,6 @@ UNLOCKABLE_UNITS = [
     {"name": "Diana", "traits": ["Targon"], "cost": 4, "diff": 2, "role": "carry"},
 
     # 5 COST
-    {"name": "Aatrox", "traits": ["Darkin", "Slayer"], "cost": 5, "diff": 3, "role": "carry"},
     {"name": "Sett", "traits": ["Ionia", "The Boss"], "cost": 5, "diff": 3, "role": "tank"},
     {"name": "Volibear", "traits": ["Freljord", "Bruiser"], "cost": 5, "diff": 3, "role": "tank"},
     {"name": "Xerath", "traits": ["Shurima", "Ascendant"], "cost": 5, "diff": 3, "role": "carry"},
@@ -161,21 +159,19 @@ UNLOCKABLE_UNITS = [
     {"name": "Ziggs", "traits": ["Zaun", "Yordle", "Longshot"], "cost": 5, "diff": 3, "role": "carry"},
 ]
 
-# TỔNG HỢP (Cho chế độ tìm team thường)
 ALL_UNITS = STANDARD_UNITS + UNLOCKABLE_UNITS
 
-# --- UNLOCK ALGORITHM (USES ONLY STANDARD UNITS) ---
+# --- UNLOCK ALGORITHM ---
 def solve_unlock_mission(pool, slots, user_emblems):
     candidates = []
     limit_max = 2000000 
     loop_count = 0
 
-    # Filter pool for Unlock mission
     region_units = [u for u in pool if any(t in REGION_DATA for t in u['traits'])]
     region_units.sort(key=lambda x: x['cost'])
     
-    # Expanded search pool (35 units)
-    search_pool = region_units[:35]
+    # INCREASED POOL SIZE TO 48 (TO INCLUDE 4-COST UNITS LIKE TARIC)
+    search_pool = region_units[:48]
 
     for team in itertools.combinations(search_pool, slots):
         loop_count += 1
@@ -211,23 +207,15 @@ def solve_unlock_mission(pool, slots, user_emblems):
     candidates.sort(key=lambda x: (-x['active_count'], x['cost']))
     return candidates[:3]
 
-# --- MAIN ALGORITHM (DYNAMIC BALANCED LOGIC) ---
+# --- MAIN ALGORITHM (DYNAMIC BALANCED) ---
 def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False):
-    # 1. CREATE SMART POOL
     region_units = [u for u in pool if any(t in REGION_DATA for t in u['traits'])]
     targon = [u for u in pool if "Targon" in u['traits']]
-    
-    # Versatile units
     versatile_units = sorted(pool, key=lambda x: len(x['traits']), reverse=True)[:15]
-    
-    # Expensive units (Cost 3+)
     expensive_units = [u for u in pool if u['cost'] >= 3]
     
-    # Combine and Deduplicate
     raw_pool = region_units + targon + versatile_units + expensive_units
     final_pool = list({v['name']:v for v in raw_pool}.values())
-    
-    # Limit to 40
     final_pool = final_pool[:40]
 
     limit_max = 1500000
@@ -262,7 +250,6 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
             tank_count += 1
             for t in GALIO_UNIT['traits']: traits[t] = traits.get(t, 0) + 1
         
-        # --- SCORING ---
         r_score = 0
         active_regions_set = set()
         unused_emblem_penalty = 0
@@ -287,7 +274,6 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
                 c_score += 1
                 active_classes_set.add(cl)
         
-        # Deadweight Penalty
         useless_unit_penalty = 0
         for u in final_team:
             if u['name'] in ["Ryze", "Galio", "Taric", "Ornn"]: continue
@@ -315,8 +301,7 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
                     if unit_with_trait:
                         is_supported = False
                         for other_t in unit_with_trait['traits']:
-                            if other_t in active_regions_set or other_t in active_classes_set: 
-                                is_supported = True
+                            if other_t in active_regions_set or other_t in active_classes_set: is_supported = True
                         if is_supported: c_score += 1
 
         balance_penalty = 0
@@ -328,7 +313,6 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
         
         final_r = r_score + (5 if has_galio else 0)
         
-        # --- DYNAMIC SCORING ---
         strength_score = 0
         if prioritize_strength:
             strength_score = team_total_cost * 1.5
@@ -414,14 +398,15 @@ if run:
     slots = level - 1
     tab1, tab2, tab3, tab4 = st.tabs(["Low Cost (Eco)", "Standard", "EXODIA", "🔓 UNLOCK RYZE"])
     
-    pool_easy_eco = [u for u in ALL_UNITS if u['cost'] <= 3] 
-    
+    pool_easy_eco = [u for u in STANDARD_UNITS if u['cost'] <= 3] 
+    # DEFINE THE MISSING POOL HERE
+    pool_mid = [u for u in ALL_UNITS if u['diff'] <= 2]
+
     # UNLOCK MISSION TAB
     with tab4:
         st.info("🏆 **Mission:** Activate 5 Regions to Unlock Ryze.")
         st.caption("Only uses STANDARD units (Base Pool) to calculate.")
         
-        # --- USE ONLY STANDARD UNITS FOR UNLOCKING ---
         unlock_pool = [u for u in STANDARD_UNITS] 
         
         def render_unlock(sub_tab, u_pool):
