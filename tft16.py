@@ -43,7 +43,7 @@ CLASS_DATA = {
 
 UNIQUE_TRAITS = list(CLASS_DATA.keys())[-22:]
 
-# GOD TIER UNITS (Prioritize these if traits fit)
+# GOD TIER (For Exodia)
 GOD_TIER = ["Aatrox", "Bel'Veth", "Sion", "Heimerdinger", "Ahri", "Senna", "K'Sante", "Gangplank"]
 
 GALIO_UNIT = {"name": "Galio", "traits": ["Demacia", "Invoker", "Heroic"], "cost": 5, "diff": 3, "role": "tank"}
@@ -136,7 +136,7 @@ ALL_UNITS = [
 
     # 7 COST
     
-    # LOWER UNLOCKABLES
+    # LOWER UNLOCKABLES (Common)
     {"name": "Bard", "traits": ["Caretaker"], "cost": 2, "diff": 2, "role": "supp"},
     {"name": "Orianna", "traits": ["Piltover", "Invoker"], "cost": 2, "diff": 2, "role": "supp"},
     {"name": "Poppy", "traits": ["Demacia", "Yordle", "Juggernaut"], "cost": 1, "diff": 1, "role": "tank"},
@@ -202,18 +202,22 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
         unused_emblem_penalty = 0
         active_regions_set = set()
         
+        # REGION SCORING & ANTI-VERTICAL LOGIC
         for r, data in REGION_DATA.items():
             count = traits.get(r, 0)
-            if count >= data['thresholds'][0]: 
+            min_threshold = data['thresholds'][0]
+            
+            if count >= min_threshold: 
                 r_score += 1
                 active_regions_set.add(r)
                 
-                current_tier_threshold = 0
-                for t in data['thresholds']:
-                    if count >= t: current_tier_threshold = t
-                    else: break
-                wasted = count - current_tier_threshold
-                if wasted > 0: unused_emblem_penalty -= (wasted * 5) 
+                # PENALTY FOR GOING VERTICAL (Waste of slots)
+                # If we have 4 units but threshold is 3 -> 1 wasted unit.
+                # If we have 5 units (2nd threshold) -> Still a waste for Ryze's passive (Region count)
+                # Calculate how many units exceed the MINIMUM required.
+                wasted = count - min_threshold
+                if wasted > 0:
+                    unused_emblem_penalty -= (wasted * 30) # Heavy penalty to force horizontal spread
 
             elif user_emblems.get(r, 0) > 0:
                 unused_emblem_penalty -= 15
@@ -225,34 +229,26 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
                 c_score += 1
                 active_classes_set.add(cl)
         
-        # DEADWEIGHT & TARGON PENALTY
+        # DEADWEIGHT CHECK
         useless_unit_penalty = 0
-        
-        # 1. ONE TARGON RULE
-        targon_c = traits.get("Targon", 0)
-        if targon_c == 1: useless_unit_penalty += 25 # Bonus for exactly 1 Targon (Most efficient)
-        elif targon_c > 1: useless_unit_penalty -= 30 # Penalty for >1 Targon
-        
         for u in final_team:
             if u['name'] in ["Ryze", "Galio", "Taric", "Ornn"]: continue
             if u['name'] in GOD_TIER: continue 
             
             if "Targon" in u['traits']: continue
             
-            # 2. DEAD REGION CHECK
-            has_any_region_trait = False
-            is_region_active = False
-            
+            is_active_region = False
             for t in u['traits']:
-                if t in REGION_DATA:
-                    has_any_region_trait = True
-                    if t in active_regions_set:
-                        is_region_active = True
-                        break
+                if t in active_regions_set:
+                    is_active_region = True
+                    break
             
-            if has_any_region_trait and not is_region_active:
-                useless_unit_penalty -= 50 # Penalty
+            # FORCE PENALTY: Unit has Region but Region INACTIVE -> KILL
+            has_any_region_trait = any(t in REGION_DATA for t in u['traits'])
+            if has_any_region_trait and not is_active_region:
+                useless_unit_penalty -= 50 
 
+        # Unique Logic
         for u_trait in UNIQUE_TRAITS:
             if traits.get(u_trait, 0) >= 1:
                 unit_with_trait = next((u for u in final_team if u_trait in u['traits']), None)
@@ -271,6 +267,8 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
         elif tank_count < 3 and slots >= 8: balance_penalty = -2
         
         targon_bonus = 0
+        if traits.get("Targon", 0) == 1: targon_bonus = 50 # Massive bonus for perfect 1 Targon
+        elif traits.get("Targon", 0) > 1: targon_bonus = -30 # Penalty for >1
         if "Taric" in names: targon_bonus += 20
         
         god_bonus = 0
@@ -281,7 +279,8 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
         
         final_r = r_score + (5 if has_galio else 0)
         
-        smart_score = (final_r * 15.0) + c_score + balance_penalty + unused_emblem_penalty + targon_bonus + annie_penalty + useless_unit_penalty + god_bonus
+        # Weight R_SCORE massively (x50) to ensure Max Unique Regions
+        smart_score = (final_r * 50.0) + c_score + balance_penalty + unused_emblem_penalty + targon_bonus + annie_penalty + useless_unit_penalty + god_bonus
         
         r_list_fmt = [f"{r}({traits[r]})" for r in REGION_DATA if traits.get(r,0) >= REGION_DATA[r]['thresholds'][0]]
         c_list_fmt = [f"{c}({traits[c]})" for c in CLASS_DATA if traits.get(c,0) >= CLASS_DATA[c][0] and c not in UNIQUE_TRAITS]
@@ -334,7 +333,7 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
 
 # --- UI ---
 st.title("🧙‍♂️ TFT Set 16: Ryze AI Tool")
-st.markdown("**Strategic Diversity:** One Targon Rule + Dead Region Fix.")
+st.markdown("**Strategic Diversity:** Anti-Vertical (Max Width) & Strict Targon.")
 
 with st.sidebar:
     st.header("⚙️ Config")
@@ -365,7 +364,7 @@ if run:
     
     def render(tab, pool, p_str=False):
         with tab:
-            if p_str: st.caption("Prioritizes **God Tier** units, **1 Targon** & **No Dead Regions**.")
+            if p_str: st.caption("Prioritizes **Width (More Regions)** over Depth.")
             with st.spinner("Analyzing strategies..."):
                 res = solve_three_strategies(pool, slots, user_emblems, p_str)
             
@@ -427,4 +426,3 @@ if run:
 
 elif not run:
     st.info("👈 Select Level -> Click FIND TEAMS")
-
