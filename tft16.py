@@ -282,7 +282,6 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
 
 # --- UI ---
 st.title("🧙‍♂️ TFT Set 16: Ryze AI Tool")
-st.markdown("**Strategic Diversity:** Targon Priority + Role Balance.")
 
 with st.sidebar:
     st.header("⚙️ Config")
@@ -371,3 +370,4 @@ if run:
 
 elif not run:
     st.info("👈 Select Level -> Click FIND TEAMS")
+
