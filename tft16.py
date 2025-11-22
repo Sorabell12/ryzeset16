@@ -18,7 +18,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- GLOBAL LANGUAGE DICTIONARY (FIXED POSITION) ---
+# --- GLOBAL LANGUAGE DICTIONARY ---
 T = {
     "Tiếng Việt": {
         "title": "🧙‍♂️ TFT Mùa 16: Tool Ryze AI",
@@ -408,6 +408,13 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
                 elif user_emblems.get(r, 0) > 0:
                     unused_emblem_penalty -= 15
             
+            # FIX: ENFORCE REGION MINIMUM FOR RYZE
+            final_r_penalty = 0
+            if final_r == 0:
+                final_r_penalty = -99999999 # Invalidate team instantly
+            elif final_r < 3 and slots >= 7 and not has_galio: 
+                final_r_penalty = -500
+
             c_score = 0
             active_classes_set = set()
             for cl, thresholds in CLASS_DATA.items():
@@ -459,7 +466,7 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
             smart_score = (final_r * 25.0) + \
                           (c_score * 12.0) + \
                           strength_score + \
-                          balance_penalty + unused_emblem_penalty + targon_bonus + annie_penalty + useless_unit_penalty
+                          balance_penalty + unused_emblem_penalty + targon_bonus + annie_penalty + useless_unit_penalty + final_r_penalty
             
             r_list_fmt = [f"{r}({traits[r]})" for r in REGION_DATA if traits.get(r,0) >= REGION_DATA[r]['thresholds'][0]]
             c_list_fmt = [f"{c}({traits[c]})" for c in CLASS_DATA if traits.get(c,0) >= CLASS_DATA[c][0] and c not in UNIQUE_TRAITS]
