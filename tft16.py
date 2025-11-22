@@ -60,8 +60,8 @@ TRANS = {
         "err_combat": "No valid team found.",
         "labels": [
             "👑 Option 1: BEST BALANCED (AI Choice)",
-            "🌍 Option 2: MAX REGIONS (Ryze Max Power)",
-            "🛡️ Option 3: MAX SYNERGY (Trait Count)"
+            "🌍 Option 2",
+            "🛡️ Option 3"
         ]
     }
 }
@@ -95,7 +95,7 @@ UNIQUE_TRAITS = list(CLASS_DATA.keys())[-22:]
 
 GALIO_UNIT = {"name": "Galio", "traits": ["Demacia", "Invoker", "Heroic"], "cost": 5, "diff": 3, "role": "tank"}
 
-# --- UNIT LISTS ---
+# --- UNIT LISTS (FINAL CORRECTED DATA) ---
 STANDARD_UNITS = [
     # 1 COST
     {"name": "Anivia", "traits": ["Freljord", "Invoker"], "cost": 1, "diff": 1, "role": "carry"},
@@ -207,7 +207,7 @@ UNLOCKABLE_UNITS = [
 
 ALL_UNITS = STANDARD_UNITS + UNLOCKABLE_UNITS
 
-# --- ALGORITHM 1: UNLOCK MISSION (PARALLEL SEARCH) ---
+# --- ALGORITHM 1: UNLOCK MISSION (PARALLEL SEARCH & CLASSIFICATION) ---
 def solve_unlock_mission(slots, user_emblems):
     candidates = []
     limit_max = 10000000 
@@ -240,12 +240,13 @@ def solve_unlock_mission(slots, user_emblems):
 
         traits = {}
         total_cost = 0
-        unlock_count = 0
+        unlock_count = 0 
         
         for u in team:
             total_cost += u.get('cost', 1)
             if any(u['name'] == ul['name'] for ul in UNLOCKABLE_UNITS):
                 unlock_count += 1
+                
             for t in u['traits']:
                 traits[t] = traits.get(t, 0) + 1
                 
@@ -392,7 +393,6 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
                 elif user_emblems.get(r, 0) > 0:
                     unused_emblem_penalty -= 15
             
-            # CLASS SCORING: Standard (+2) > Unique (+1)
             c_score = 0
             active_classes_set = set()
             for cl, thresholds in CLASS_DATA.items():
@@ -502,7 +502,7 @@ with st.sidebar:
     st.header("⚙️ Config")
     
     # --- MULTI-LANGUAGE SELECTOR ---
-    lang_options = ["Tiếng Việt", "English"]
+    lang_options = ["English", "Tiếng Việt"] # English Default
     lang_choice = st.selectbox("🌐 Language", lang_options)
     
     # Dictionary
@@ -516,7 +516,7 @@ with st.sidebar:
             "emb_region": "🌍 Ấn Vùng Đất (Region Emblems)",
             "emb_class": "🛡️ Ấn Tộc/Hệ (Class Emblems)",
             "donate_title": "### ☕ Ủng hộ Dev",
-            "donate_btn": "☕ Buy Me a Coffee",
+            "donate_btn": "☕ Buy Me a Coffee", 
             "tabs": ["Giá Rẻ (Eco)", "Tiêu Chuẩn (Standard)", "EXODIA (Tối Thượng)", "🔓 MỞ KHÓA RYZE"],
             "mission_info": "🏆 **Nhiệm vụ:** Kích hoạt 5 Vùng Đất để mở khóa Ryze.",
             "tag_basic": "🟢 **SHOP CƠ BẢN (CÓ SẴN)**",
@@ -547,8 +547,8 @@ with st.sidebar:
             "err_combat": "No valid team found.",
             "labels": [
                 "👑 Option 1: BEST BALANCED (AI Choice)",
-                "🌍 Option 2: MAX REGIONS (Ryze Max Power)",
-                "🛡️ Option 3: MAX SYNERGY (Trait Count)"
+                "🌍 Option 2",
+                "🛡️ Option 3"
             ]
         }
     }
@@ -564,7 +564,7 @@ with st.sidebar:
     r_emblems = {}
     c_emblems = {}
     
-    with st.expander(t["emb_region"], expanded=True):
+    with st.expander(t["emb_region"], expanded=False): # Default Closed
         cols = st.columns(2)
         keys = sorted(REGION_DATA.keys())
         for i, k in enumerate(keys):
