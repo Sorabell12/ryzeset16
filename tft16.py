@@ -13,6 +13,7 @@ st.markdown("""
         }
         div.stButton > button:hover { background-color: #FF0000; color: white; }
         .streamlit-expanderHeader { font-weight: bold; font-size: 1.1rem; }
+        .css-16idsys p { font-size: 14px; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -136,6 +137,7 @@ UNLOCKABLE_UNITS = [
     # 4 COST
     {"name": "Fizz", "traits": ["Bilgewater", "Yordle"], "cost": 4, "diff": 2, "role": "carry"},
     {"name": "Warwick", "traits": ["Zaun", "Quickstriker"], "cost": 4, "diff": 1, "role": "carry"},
+    {"name": "Yone", "traits": ["Ionia", "Slayer"], "cost": 4, "diff": 1, "role": "carry"},
     {"name": "Nidalee", "traits": ["Ixtal", "Huntress"], "cost": 4, "diff": 2, "role": "carry"},
     {"name": "Skarner", "traits": ["Ixtal"], "cost": 4, "diff": 2, "role": "tank"},
     {"name": "Rift Herald", "traits": ["Void", "Bruiser"], "cost": 4, "diff": 2, "role": "tank"},
@@ -195,7 +197,6 @@ def solve_unlock_mission(slots, user_emblems):
             total_cost += u.get('cost', 1)
             if any(u['name'] == ul['name'] for ul in UNLOCKABLE_UNITS):
                 unlock_count += 1
-                
             for t in u['traits']:
                 traits[t] = traits.get(t, 0) + 1
                 
@@ -222,7 +223,7 @@ def solve_unlock_mission(slots, user_emblems):
     candidates.sort(key=lambda x: (-x['active_count'], x['unlock_count'], x['cost']))
     return candidates[:5]
 
-# --- ALGORITHM 2: STANDARD OPTIMIZER (SYNERGY NETWORK + ANNIE FIX) ---
+# --- ALGORITHM 2: STANDARD OPTIMIZER ---
 def build_synergy_pool(base_pool, user_emblems, prioritize_strength=False):
     seed_traits = set(user_emblems.keys())
     seed_traits.add("Targon")
@@ -236,13 +237,11 @@ def build_synergy_pool(base_pool, user_emblems, prioritize_strength=False):
     final_pool = []
     seen_names = set()
 
-    # 1. Add Seeds
     for u in seed_units:
         if u['name'] not in seen_names:
             final_pool.append(u)
             seen_names.add(u['name'])
             
-    # 2. Add Linked Units
     for u in base_pool:
         if u['name'] in seen_names: continue
         has_link = False
@@ -254,19 +253,16 @@ def build_synergy_pool(base_pool, user_emblems, prioritize_strength=False):
             final_pool.append(u)
             seen_names.add(u['name'])
 
-    # 3. FIX: Force Trait Partners for High Cost Units
-    # Nếu trong pool có tướng 4-5 tiền (như Ziggs), tìm ngay bạn diễn của nó (như Poppy)
     high_value_units = [u for u in final_pool if u['cost'] >= 4]
     for hv in high_value_units:
         for t in hv['traits']:
             if t in CLASS_DATA or t in REGION_DATA:
-                # Tìm tất cả tướng có cùng hệ này trong base_pool
                 partners = [p for p in base_pool if t in p['traits'] and p['name'] not in seen_names]
                 for p in partners:
                     final_pool.append(p)
                     seen_names.add(p['name'])
 
-    if len(final_pool) < 50: # Tăng limit pool lên 50 để chứa đủ
+    if len(final_pool) < 50:
         expensive_fillers = [u for u in base_pool if u['cost'] >= 4 and u['name'] not in seen_names]
         final_pool.extend(expensive_fillers)
 
@@ -284,14 +280,7 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
     loop_count = 0
     candidates = []
 
-    # Chúng ta sẽ duyệt qua các tổ hợp.
-    # LƯU Ý: Vì Annie tốn 2 slot, chúng ta không thể chỉ dùng itertools.combinations(pool, slots)
-    # vì nó luôn trả về 'slots' tướng. Nếu có Annie, team đó sẽ bị quá tải slot.
-    
-    # GIẢI PHÁP: Duyệt tổ hợp với kích thước (slots) và (slots - 1)
-    # Team chuẩn (không Annie): cần 'slots' tướng.
-    # Team có Annie: cần 'slots - 1' tướng (vì Annie + 1 slot trống = 2 slot).
-    
+    # ANNIE FIX: Check for Annie (2 slots)
     search_sizes = [slots]
     if any(u['name'] == "Annie" for u in final_pool):
         search_sizes.append(slots - 1)
@@ -302,7 +291,6 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
             if loop_count > limit_max: break
             if len(set([u['name'] for u in team])) < len(team): continue
 
-            # --- KIỂM TRA SLOT CỦA ANNIE ---
             slots_used = 0
             has_annie = False
             for u in team:
@@ -312,10 +300,7 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
                 else:
                     slots_used += 1
             
-            # Nếu dùng quá số slot cho phép -> Bỏ qua
             if slots_used > slots: continue
-            
-            # Nếu đang xét size nhỏ (slots - 1) mà KHÔNG có Annie -> Bỏ qua (vì bị thiếu người vô lý)
             if size == (slots - 1) and not has_annie: continue
 
             traits = {}
@@ -469,19 +454,27 @@ with st.sidebar:
     st.markdown("<br>", unsafe_allow_html=True)
     run = st.button("🚀 FIND TEAMS", type="primary")
     st.markdown("---")
-    with st.expander("🧩 Region Emblems", expanded=False):
-        user_emblems = {}
-        c1, c2 = st.columns(2)
+    
+    # --- MERGED EMBLEM INPUTS ---
+    r_emblems = {}
+    c_emblems = {}
+    
+    with st.expander("🌍 Region Emblems", expanded=True):
+        cols = st.columns(2)
         keys = sorted(REGION_DATA.keys())
-        mid = len(keys)//2
-        with c1:
-            for k in keys[:mid]:
-                v = st.number_input(k, 0, 3, key=k)
-                if v: user_emblems[k]=v
-        with c2:
-            for k in keys[mid:]:
-                v = st.number_input(k, 0, 3, key=k)
-                if v: user_emblems[k]=v
+        for i, k in enumerate(keys):
+            v = cols[i%2].number_input(k, 0, 3, key=f"r_{k}")
+            if v: r_emblems[k] = v
+            
+    with st.expander("🛡️ Class/Trait Emblems", expanded=False):
+        cols = st.columns(2)
+        keys = sorted(list(CLASS_DATA.keys())) # Convert to list
+        for i, k in enumerate(keys):
+            v = cols[i%2].number_input(k, 0, 3, key=f"c_{k}")
+            if v: c_emblems[k] = v
+            
+    # Combine all emblems for the algorithm
+    user_emblems = {**r_emblems, **c_emblems}
 
 if run:
     slots_for_unlock = level
@@ -506,9 +499,9 @@ if run:
                         expanded = (i==0)
                         u_count = data['unlock_count']
                         if u_count == 0:
-                            tag = "🟢 **BASIC SHOP (AVAILABLE)**"
+                            tag = "🟢 **BASIC SHOP**"
                         else:
-                            tag = f"🟠 **REQUIRES {u_count} UNLOCK(S)**"
+                            tag = f"🟠 **UNLOCK ({u_count})**"
                             
                         title = f"{tag} | Option {i+1}: {data['active_count']} Regions (Cost: {data['cost']}🟡)"
                         
@@ -549,8 +542,8 @@ if run:
             if res:
                 labels = [
                     "👑 Option 1: BEST BALANCED (AI Choice)",
-                    "🌍 Option 2",
-                    "🛡️ Option 3"
+                    "🌍 Option 2: MAX REGIONS (Ryze Max Power)",
+                    "🛡️ Option 3: MAX SYNERGY (Trait Count)"
                 ]
                 
                 for i, data in enumerate(res):
@@ -575,8 +568,9 @@ if run:
                         for u in team:
                             role_icon = "🛡️" if u.get('role')=='tank' else ("⚔️" if u.get('role')=='carry' else "❤️")
                             traits_html = []
-                            unit_note = " (+Tibbers)" if u['name'] == "Annie" else ""
-                            if u['name'] == "Annie": unit_note = " 🐻 (2 Slots)"
+                            
+                            unit_note = ""
+                            if u['name'] == "Annie": unit_note = " (+Tibbers)"
                             
                             for t in u['traits']:
                                 if "Targon" in t: traits_html.append(f"<span style='color:#9C27B0'><b>{t}</b></span>")
@@ -603,4 +597,3 @@ if run:
 
 elif not run:
     st.info("👈 Select Level -> Click FIND TEAMS")
-
