@@ -12,7 +12,6 @@ st.markdown("""
             width: 100%; background-color: #FF4B4B; color: white; font-weight: bold; border: none;
         }
         div.stButton > button:hover { background-color: #FF0000; color: white; }
-        .streamlit-expanderHeader { font-weight: bold; font-size: 1.1rem; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -32,20 +31,22 @@ CLASS_DATA = {
     "Slayer": [2, 4, 6], "Gunslinger": [2, 4, 6], "Arcanist": [2, 4, 6],
     "Warden": [2, 3, 4, 5], "Juggernaut": [2, 4, 6], "Longshot": [2, 3, 4, 5],
     "Quickstriker": [2, 3, 4, 5], "Disruptor": [2, 4], "Vanquisher": [2, 3, 4, 5],
-    "Darkin": [1, 2, 3],
+    "Darkin": [1, 2, 3], # Darkin is a synergy class
+    # Unique Traits (Self-activating)
     "Heroic": [1], "The Boss": [1], "Emperor": [1], "Ascendant": [1], 
     "Star Forger": [1], "Caretaker": [1], "Rune Mage": [1], "Assimilator": [1],
     "Huntress": [1], "Glutton": [1], "Blacksmith": [1], "Soulbound": [1],
     "Eternal": [1], "Dragonborn": [1], "Chronokeeper": [1], "Dark Child": [1],
     "Harvester": [1], "HexMech": [1], "Chainbreaker": [1], "Riftscourge": [1],
-    "Immortal": [1]
+    "Immortal": [1], "Empress": [1]
 }
 
-UNIQUE_TRAITS = [
+# Traits that activate with just 1 unit (Self-sufficient)
+SELF_ACTIVE_TRAITS = [
     "Heroic", "The Boss", "Emperor", "Ascendant", "Star Forger", "Caretaker", 
     "Rune Mage", "Assimilator", "Huntress", "Glutton", "Blacksmith", "Soulbound", 
     "Eternal", "Dragonborn", "Chronokeeper", "Dark Child", "Harvester", "HexMech",
-    "Chainbreaker", "Riftscourge", "Immortal"
+    "Chainbreaker", "Riftscourge", "Immortal", "Empress"
 ]
 
 GALIO_UNIT = {"name": "Galio", "traits": ["Demacia", "Invoker", "Heroic"], "cost": 5, "diff": 3, "role": "tank"}
@@ -99,7 +100,7 @@ ALL_UNITS = [
     # 4 COST
     {"name": "Taric", "traits": ["Targon"], "cost": 4, "diff": 2, "role": "tank"},
     {"name": "Ambessa", "traits": ["Noxus", "Vanquisher"], "cost": 4, "diff": 2, "role": "carry"},
-    {"name": "Bel'Veth", "traits": ["Void", "Slayer"], "cost": 4, "diff": 2, "role": "carry"},
+    {"name": "Bel'Veth", "traits": ["Void", "Slayer", "Empress"], "cost": 4, "diff": 2, "role": "carry"},
     {"name": "Braum", "traits": ["Freljord", "Warden"], "cost": 4, "diff": 2, "role": "tank"},
     {"name": "Garen", "traits": ["Demacia", "Defender"], "cost": 4, "diff": 2, "role": "tank"},
     {"name": "Lissandra", "traits": ["Freljord", "Invoker"], "cost": 4, "diff": 2, "role": "carry"},
@@ -138,7 +139,7 @@ ALL_UNITS = [
 
     # 7 COST
     
-    # LOWER UNLOCKABLES
+    # LOWER UNLOCKABLES (Common)
     {"name": "Bard", "traits": ["Caretaker"], "cost": 2, "diff": 2, "role": "supp"},
     {"name": "Orianna", "traits": ["Piltover", "Invoker"], "cost": 2, "diff": 2, "role": "supp"},
     {"name": "Poppy", "traits": ["Demacia", "Yordle", "Juggernaut"], "cost": 1, "diff": 1, "role": "tank"},
@@ -158,13 +159,16 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
     targon = [u for u in pool if "Targon" in u['traits']]
     
     if prioritize_strength:
+        # EXODIA POOL: High Cost & Connectors
         high_cost = [u for u in pool if u['cost'] >= 4]
         mid_cost = [u for u in pool if u['cost'] == 3]
         efficient_low = [u for u in region_units if u['cost'] < 3 and len(u['traits']) >= 3]
         
         raw_pool = high_cost + mid_cost + efficient_low + targon
         final_pool = list({v['name']:v for v in raw_pool}.values())
-        final_pool.sort(key=lambda x: x['cost'] + (1 if len(x['traits'])>=3 else 0), reverse=True)
+        
+        # Sort logic: NO GOD TIER BONUS. Only Cost & Traits.
+        final_pool.sort(key=lambda x: 100 if x['name'] == "Taric" else (x['cost'] + (1 if len(x['traits'])>=3 else 0)), reverse=True)
         final_pool = final_pool[:35] 
     else:
         connectors = [u for u in region_units if len([t for t in u['traits'] if t in REGION_DATA]) >= 2]
@@ -188,12 +192,14 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
             if u.get('role') == 'tank': tank_count += 1
             for t in u['traits']:
                 traits[t] = traits.get(t, 0) + 1
+            # ANNIE FIX
             if u['name'] == "Annie":
                 traits['Arcanist'] = traits.get('Arcanist', 0) + 1
                 
         for emb, count in user_emblems.items():
             traits[emb] = traits.get(emb, 0) + count
         
+        # Galio Logic
         has_galio = False
         final_team = list(team)
         if traits.get("Demacia", 0) >= 6:
@@ -202,6 +208,7 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
             tank_count += 1
             for t in GALIO_UNIT['traits']: traits[t] = traits.get(t, 0) + 1
         
+        # 1. Region Score & Penalty for unused Emblems
         r_score = 0
         unused_emblem_penalty = 0
         active_regions_set = set()
@@ -213,6 +220,7 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
             elif user_emblems.get(r, 0) > 0:
                 unused_emblem_penalty -= 15
         
+        # 2. Class Score
         c_score = 0
         active_classes_set = set()
         for cl, thresholds in CLASS_DATA.items():
@@ -220,53 +228,45 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
                 c_score += 1
                 active_classes_set.add(cl)
         
-        # UNIVERSAL DEADWEIGHT CHECK (For all units except Ryze/Galio)
+        # 3. DEAD REGION & USELESS UNIT CHECK
+        # This is the "Pure Synergy" check.
         useless_unit_penalty = 0
         for u in final_team:
-            if u['name'] == "Ryze" or u['name'] == "Galio": continue
+            # Ignored units (Always useful)
+            if u['name'] in ["Ryze", "Galio", "Taric", "Ornn"]: continue
             
+            # Check if unit is contributing to an ACTIVE trait
             is_contributing = False
-            # Targon units always contribute (threshold 1)
+            
+            # Targon is always active (Threshold 1)
             if "Targon" in u['traits']: is_contributing = True
             
             if not is_contributing:
                 for t in u['traits']:
-                    if t in active_regions_set:
+                    # If trait is active Region
+                    if t in active_regions_set: 
                         is_contributing = True
                         break
+                    # If trait is active Class
                     if t in active_classes_set:
-                        # Unique traits like Emperor only count if they are supported,
-                        # but here we check if the unit is deadweight.
-                        # If Blacksmith is active (1/1), Ornn is contributing.
-                        # If Emperor is active (1/1), Azir is contributing (technically),
-                        # but previous logic says Azir needs region.
-                        # Let's check Conditional Value logic:
-                        if t in UNIQUE_TRAITS:
-                            if t == "Blacksmith": is_contributing = True # Ornn always good
-                            # Other uniques don't save a unit from being deadweight 
-                            # unless they have another active trait.
+                        # Self-active traits (Uniques) count as contributing IF they are supported
+                        # But for the purpose of "Deadweight", if they have NO active shared traits
+                        # and NO active region, they are effectively deadweight for Ryze comps.
+                        if t in SELF_ACTIVE_TRAITS:
+                            # Exception: Blacksmith is always useful.
+                            if t == "Blacksmith": 
+                                is_contributing = True
+                                break
+                            # Other uniques don't save you from being deadweight in a Ryze comp
+                            # unless you link to something else.
                         else:
                             is_contributing = True
                             break
             
             if not is_contributing:
-                useless_unit_penalty -= 20 # General penalty for ANY deadweight unit
+                useless_unit_penalty -= 15 # Penalty for being a dead unit
 
-        # Conditional Unique Scoring (Bonus for supported uniques)
-        for u_trait in UNIQUE_TRAITS:
-            if traits.get(u_trait, 0) >= 1:
-                unit_with_trait = next((u for u in final_team if u_trait in u['traits']), None)
-                if unit_with_trait:
-                    if u_trait == "Blacksmith": 
-                        c_score += 1
-                    else:
-                        is_supported = False
-                        for other_t in unit_with_trait['traits']:
-                            if other_t == u_trait: continue
-                            if other_t in active_regions_set: is_supported = True
-                            if other_t in active_classes_set: is_supported = True
-                        if is_supported: c_score += 1
-
+        # 4. Balance Penalty
         balance_penalty = 0
         if tank_count < 2: balance_penalty = -5 
         elif tank_count < 3 and slots >= 8: balance_penalty = -2
@@ -274,20 +274,24 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
         targon_bonus = 3 if traits.get("Targon", 0) >= 1 else 0
         if "Taric" in names: targon_bonus += 20
         
-        annie_penalty = 0
-        if "Annie" in names: annie_penalty = -12
+        annie_penalty = -12 if "Annie" in names else 0
         
         final_r = r_score + (5 if has_galio else 0)
         
+        # SMART SCORE
+        # Region Weight x5 to prioritize Ryze Power
         smart_score = (final_r * 5.0) + c_score + balance_penalty + unused_emblem_penalty + targon_bonus + annie_penalty + useless_unit_penalty
         
+        # Formatter
         r_list_fmt = [f"{r}({traits[r]})" for r in REGION_DATA if traits.get(r,0) >= REGION_DATA[r]['thresholds'][0]]
-        c_list_fmt = [f"{c}({traits[c]})" for c in CLASS_DATA if traits.get(c,0) >= CLASS_DATA[c][0] and c not in UNIQUE_TRAITS]
+        c_list_fmt = [f"{c}({traits[c]})" for c in CLASS_DATA if traits.get(c,0) >= CLASS_DATA[c][0] and c not in SELF_ACTIVE_TRAITS]
         
-        for u_trait in UNIQUE_TRAITS:
+        # Append Self-Active Traits manually
+        for u_trait in SELF_ACTIVE_TRAITS:
             if traits.get(u_trait, 0) >= 1:
                 if u_trait == "Blacksmith": c_list_fmt.append("Blacksmith")
                 else:
+                    # Only show if supported or active
                     unit_with_trait = next((u for u in final_team if u_trait in u['traits']), None)
                     if unit_with_trait:
                         is_supported = False
@@ -321,7 +325,8 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
                 opt2 = cand
                 break
     
-    candidates.sort(key=lambda x: x['smart_score'], reverse=True)
+    # Option 3: Max Classes (Synergy)
+    candidates.sort(key=lambda x: (x['c_score'], x['smart_score']), reverse=True)
     opt3 = candidates[0]
     for cand in candidates:
         if cand['team'] != opt1['team'] and cand['team'] != opt2['team']:
@@ -332,7 +337,7 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
 
 # --- UI ---
 st.title("🧙‍♂️ TFT Set 16: Ryze AI Tool")
-st.markdown("**Strategic Diversity:** Smart Deadweight Check (All Units).")
+st.markdown("**Pure Synergy:** No God Tier Bias. Efficiency Only.")
 
 with st.sidebar:
     st.header("⚙️ Config")
@@ -356,22 +361,22 @@ with st.sidebar:
 
 if run:
     slots = level - 1
-    tab1, tab2, tab3 = st.tabs(["Low Cost", "Standard", "EXODIA (Smart Value)"])
+    tab1, tab2, tab3 = st.tabs(["Low Cost", "Standard", "EXODIA (Pure Synergy)"])
     
     pool_easy = [u for u in ALL_UNITS if u['diff'] == 1]
     pool_mid = [u for u in ALL_UNITS if u['diff'] <= 2]
     
     def render(tab, pool, p_str=False):
         with tab:
-            if p_str: st.caption("Prioritizes **Taric**, Regions & High Value Units.")
+            if p_str: st.caption("Prioritizes active traits over raw cost.")
             with st.spinner("Analyzing strategies..."):
                 res = solve_three_strategies(pool, slots, user_emblems, p_str)
             
             if res:
                 labels = [
-                    "👑 Option 1: BEST BALANCED",
-                    "🌍 Option 2:",
-                    "🛡️ Option 3:"
+                    "👑 Option 1: BEST BALANCED (AI Choice)",
+                    "🌍 Option 2: MAX REGIONS (Ryze Max Power)",
+                    "🛡️ Option 3: MAX SYNERGY (Trait Count)"
                 ]
                 
                 for i, data in enumerate(res):
@@ -402,7 +407,7 @@ if run:
                             
                             for t in u['traits']:
                                 if "Targon" in t: traits_html.append(f"<span style='color:#9C27B0'><b>{t}</b></span>")
-                                elif t in UNIQUE_TRAITS or t == "Darkin": traits_html.append(f"<span style='color:#B8860B'><b>{t}</b></span>")
+                                elif t in SELF_ACTIVE_TRAITS or t == "Darkin": traits_html.append(f"<span style='color:#B8860B'><b>{t}</b></span>")
                                 elif any(t in x for x in r_l): traits_html.append(f"<span style='color:#2E7D32'><b>{t}</b></span>")
                                 elif any(t in x for x in c_l): traits_html.append(f"<span style='color:#E65100'><b>{t}</b></span>")
                                 else: traits_html.append(f"<span style='color:#555'>{t}</span>")
