@@ -45,9 +45,9 @@ UNIQUE_TRAITS = list(CLASS_DATA.keys())[-22:]
 
 GALIO_UNIT = {"name": "Galio", "traits": ["Demacia", "Invoker", "Heroic"], "cost": 5, "diff": 3, "role": "tank"}
 
-# --- DATASETS (UNIT LISTS SPLIT) ---
+# --- UNIT LISTS (CLEANED & SEPARATED) ---
 
-# 1. DANH SÁCH TƯỚNG CƠ BẢN (CÓ SẴN TRONG SHOP TỪ ĐẦU)
+# 1. STANDARD UNITS (Available from start - NO UNLOCKABLES HERE)
 STANDARD_UNITS = [
     # 1 COST
     {"name": "Anivia", "traits": ["Freljord", "Invoker"], "cost": 1, "diff": 1, "role": "carry"},
@@ -66,6 +66,9 @@ STANDARD_UNITS = [
     {"name": "Viego", "traits": ["Shadow Isles", "Quickstriker"], "cost": 1, "diff": 1, "role": "carry"},
 
     # 2 COST
+    {"name": "Vi", "traits": ["Piltover", "Zaun", "Defender"], "cost": 2, "diff": 1, "role": "tank"},
+    {"name": "Xin Zhao", "traits": ["Demacia", "Ionia", "Warden"], "cost": 2, "diff": 1, "role": "tank"},
+    {"name": "Yasuo", "traits": ["Ionia", "Slayer"], "cost": 2, "diff": 1, "role": "carry"},
     {"name": "Aphelios", "traits": ["Targon"], "cost": 2, "diff": 1, "role": "carry"},
     {"name": "Ashe", "traits": ["Freljord", "Quickstriker"], "cost": 2, "diff": 1, "role": "carry"},
     {"name": "Cho'Gath", "traits": ["Void", "Juggernaut"], "cost": 2, "diff": 1, "role": "tank"},
@@ -107,7 +110,6 @@ STANDARD_UNITS = [
     {"name": "Yunara", "traits": ["Ionia", "Quickstriker"], "cost": 4, "diff": 2, "role": "carry"},
 
     # 5 COST
-    {"name": "Aatrox", "traits": ["Darkin", "Slayer"], "cost": 5, "diff": 3, "role": "carry"},
     {"name": "Annie", "traits": ["Dark Child", "Arcanist"], "cost": 5, "diff": 3, "role": "carry"},
     {"name": "Azir", "traits": ["Shurima", "Emperor", "Disruptor"], "cost": 5, "diff": 3, "role": "carry"},
     {"name": "Fiddlesticks", "traits": ["Harvester", "Vanquisher"], "cost": 5, "diff": 3, "role": "carry"},
@@ -118,13 +120,10 @@ STANDARD_UNITS = [
     {"name": "Zilean", "traits": ["Chronokeeper", "Invoker"], "cost": 5, "diff": 3, "role": "supp"}
 ]
 
-# 2. DANH SÁCH TƯỚNG CẦN UNLOCK (CHỈ DÙNG SAU KHI ĐÃ MỞ KHÓA)
+# 2. UNLOCKABLE UNITS (Poppy, Vi, Xin Zhao, etc. ARE HERE)
 UNLOCKABLE_UNITS = [
     # 2 COST
-    {"name": "Poppy", "traits": ["Demacia", "Yordle", "Juggernaut"], "cost": 2, "diff": 1, "role": "tank"},
-    {"name": "Vi", "traits": ["Piltover", "Zaun", "Defender"], "cost": 2, "diff": 1, "role": "tank"},
-    {"name": "Xin Zhao", "traits": ["Demacia", "Ionia", "Warden"], "cost": 2, "diff": 1, "role": "tank"},
-    {"name": "Yasuo", "traits": ["Ionia", "Slayer"], "cost": 2, "diff": 1, "role": "carry"},
+    {"name": "Poppy", "traits": ["Demacia", "Yordle", "Juggernaut"], "cost": 2, "diff": 2, "role": "tank"},
     {"name": "Bard", "traits": ["Caretaker"], "cost": 2, "diff": 2, "role": "supp"},
     {"name": "Orianna", "traits": ["Piltover", "Invoker"], "cost": 2, "diff": 2, "role": "supp"},
     {"name": "Graves", "traits": ["Bilgewater", "Gunslinger"], "cost": 2, "diff": 2, "role": "carry"},
@@ -154,6 +153,7 @@ UNLOCKABLE_UNITS = [
     {"name": "Diana", "traits": ["Targon"], "cost": 4, "diff": 2, "role": "carry"},
 
     # 5 COST
+    {"name": "Aatrox", "traits": ["Darkin", "Slayer"], "cost": 5, "diff": 3, "role": "carry"},
     {"name": "Sett", "traits": ["Ionia", "The Boss"], "cost": 5, "diff": 3, "role": "tank"},
     {"name": "Volibear", "traits": ["Freljord", "Bruiser"], "cost": 5, "diff": 3, "role": "tank"},
     {"name": "Xerath", "traits": ["Shurima", "Ascendant"], "cost": 5, "diff": 3, "role": "carry"},
@@ -161,10 +161,10 @@ UNLOCKABLE_UNITS = [
     {"name": "Ziggs", "traits": ["Zaun", "Yordle", "Longshot"], "cost": 5, "diff": 3, "role": "carry"},
 ]
 
-# TỔNG HỢP (CHO CHẾ ĐỘ TỐI ƯU ĐỘI HÌNH SAU KHI ĐÃ UNLOCK)
+# TỔNG HỢP (Cho chế độ tìm team thường)
 ALL_UNITS = STANDARD_UNITS + UNLOCKABLE_UNITS
 
-# --- UNLOCK ALGORITHM (SMART SEARCH) ---
+# --- UNLOCK ALGORITHM (USES ONLY STANDARD UNITS) ---
 def solve_unlock_mission(pool, slots, user_emblems):
     candidates = []
     limit_max = 2000000 
@@ -174,7 +174,7 @@ def solve_unlock_mission(pool, slots, user_emblems):
     region_units = [u for u in pool if any(t in REGION_DATA for t in u['traits'])]
     region_units.sort(key=lambda x: x['cost'])
     
-    # Expanded search pool (35 units) to catch necessary 3-4 cost units
+    # Expanded search pool (35 units)
     search_pool = region_units[:35]
 
     for team in itertools.combinations(search_pool, slots):
@@ -214,21 +214,20 @@ def solve_unlock_mission(pool, slots, user_emblems):
 # --- MAIN ALGORITHM (DYNAMIC BALANCED LOGIC) ---
 def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False):
     # 1. CREATE SMART POOL
-    # Base pool: units with region traits
     region_units = [u for u in pool if any(t in REGION_DATA for t in u['traits'])]
     targon = [u for u in pool if "Targon" in u['traits']]
     
-    # Top versatile units (most traits) to allow flexible connections
+    # Versatile units
     versatile_units = sorted(pool, key=lambda x: len(x['traits']), reverse=True)[:15]
     
-    # Expensive units (Cost 3+) to ensure we have strong tanks/carries available
+    # Expensive units (Cost 3+)
     expensive_units = [u for u in pool if u['cost'] >= 3]
     
     # Combine and Deduplicate
     raw_pool = region_units + targon + versatile_units + expensive_units
     final_pool = list({v['name']:v for v in raw_pool}.values())
     
-    # Limit to 40 to keep calculation time reasonable while including key units
+    # Limit to 40
     final_pool = final_pool[:40]
 
     limit_max = 1500000
@@ -273,7 +272,6 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
             if count >= data['thresholds'][0]: 
                 r_score += 1
                 active_regions_set.add(r)
-                # Penalty for wasted trait points (e.g., 4/3 Freljord)
                 current_tier_threshold = 0
                 for t in data['thresholds']:
                     if count >= t: current_tier_threshold = t
@@ -301,9 +299,7 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
                     break
             
             if not is_contributing:
-                # Heavy penalty for cheap useless units
                 if u['cost'] <= 2: useless_unit_penalty -= 30
-                # Lighter penalty for expensive units (raw stats still useful)
                 else: useless_unit_penalty -= 10
 
         targon_c = traits.get("Targon", 0)
@@ -332,9 +328,7 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
         
         final_r = r_score + (5 if has_galio else 0)
         
-        # --- DYNAMIC TRADEOFF CALCULATION ---
-        # Logic: If traits are equal, Gold Value wins (1.5 pts/gold).
-        # Logic: If Traits are unequal, Trait Value wins (12 pts/class).
+        # --- DYNAMIC SCORING ---
         strength_score = 0
         if prioritize_strength:
             strength_score = team_total_cost * 1.5
@@ -421,14 +415,14 @@ if run:
     tab1, tab2, tab3, tab4 = st.tabs(["Low Cost (Eco)", "Standard", "EXODIA", "🔓 UNLOCK RYZE"])
     
     pool_easy_eco = [u for u in ALL_UNITS if u['cost'] <= 3] 
-    pool_mid = [u for u in ALL_UNITS if u['diff'] <= 2]
     
     # UNLOCK MISSION TAB
     with tab4:
         st.info("🏆 **Mission:** Activate 5 Regions to Unlock Ryze.")
-        sub1, sub2 = st.tabs(["Basic Shop (Diff 1)", "Mixed (Diff 1-2)"])
-        unlock_pool_basic = [u for u in ALL_UNITS if u['diff'] == 1]
-        unlock_pool_mixed = [u for u in ALL_UNITS if u['diff'] <= 2]
+        st.caption("Only uses STANDARD units (Base Pool) to calculate.")
+        
+        # --- USE ONLY STANDARD UNITS FOR UNLOCKING ---
+        unlock_pool = [u for u in STANDARD_UNITS] 
         
         def render_unlock(sub_tab, u_pool):
             with sub_tab:
@@ -460,10 +454,9 @@ if run:
                                 col.markdown(f"{idx}. **{u['name']}** ({u['cost']}🟡) : {' '.join(traits_html)}", unsafe_allow_html=True)
                                 idx += 1
                 else:
-                    st.error("Cannot find 5 regions.")
+                    st.error("Cannot find 5 regions using Standard Units.")
         
-        render_unlock(sub1, unlock_pool_basic)
-        render_unlock(sub2, unlock_pool_mixed)
+        render_unlock(st.container(), unlock_pool)
 
     def render(tab, pool, p_str=False):
         with tab:
@@ -531,4 +524,3 @@ if run:
 
 elif not run:
     st.info("👈 Select Level -> Click FIND TEAMS")
-
