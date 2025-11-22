@@ -410,10 +410,12 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
             
             final_r = r_score + (5 if has_galio else 0) 
             
+            # === FIX BUG: BỎ QUA NẾU KHÔNG KÍCH HOẠT VÙNG ĐẤT NÀO ===
+            if final_r == 0: continue
+            # ==========================================================
+
             final_r_penalty = 0
-            if final_r == 0:
-                final_r_penalty = -99999999 
-            elif final_r < 3 and slots >= 7 and not has_galio: 
+            if final_r < 3 and slots >= 7 and not has_galio: 
                 final_r_penalty = -500
 
             c_score = 0
@@ -462,7 +464,7 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
             if prioritize_strength:
                 strength_score = team_total_cost * 2.0 
 
-            smart_score = (final_r * 25.0) + \
+            smart_score = (final_r * 100.0) + \
                           (c_score * 12.0) + \
                           strength_score + \
                           balance_penalty + unused_emblem_penalty + targon_bonus + annie_penalty + useless_unit_penalty + final_r_penalty
