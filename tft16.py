@@ -435,7 +435,7 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
                         break
                 if not is_contributing:
                     if u['cost'] <= 2: useless_unit_penalty -= 30
-                    else: useless_unit_penalty -= 50
+                    else: useless_unit_penalty -= 500
 
             targon_c = traits.get("Targon", 0)
             if targon_c == 1: useless_unit_penalty += 50
@@ -692,4 +692,5 @@ if run:
 
 elif not run:
     st.info("👈 Select Level -> Click FIND TEAMS")
+
 
