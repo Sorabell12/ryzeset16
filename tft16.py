@@ -43,7 +43,7 @@ T = {
         "res_cost": "Vàng",
         "active": "**Kích hoạt:**",
         "labels": [
-            "👑 Lựa chọn 1: CÂN BẰNG NHẤT (AI Khuyên dùng)",
+            "👑 Lựa chọn 1: CÂN BẰNG NHẤT",
             "🌍 Lựa chọn 2",
             "🛡️ Lựa chọn 3"
         ]
@@ -71,7 +71,7 @@ T = {
         "res_cost": "Gold",
         "active": "**Active:**",
         "labels": [
-            "👑 Option 1: BEST BALANCED (AI Choice)",
+            "👑 Option 1: BEST BALANCED",
             "🌍 Option 2",
             "🛡️ Option 3"
         ]
@@ -408,7 +408,7 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
                 elif user_emblems.get(r, 0) > 0:
                     unused_emblem_penalty -= 15
             
-            # FIX: ENFORCE REGION MINIMUM FOR RYZE
+            # FIX: INITIALIZE AND CALCULATE REGION PENALTY
             final_r_penalty = 0
             if final_r == 0:
                 final_r_penalty = -99999999 # Invalidate team instantly
@@ -442,39 +442,6 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
             for u_trait in UNIQUE_TRAITS:
                 if traits.get(u_trait, 0) >= 1:
                     if u_trait == "Blacksmith": c_score += 1
-                    else:
-                        unit_with_trait = next((u for u in final_team if u_trait in u['traits']), None)
-                        if unit_with_trait:
-                            is_supported = False
-                            for other_t in unit_with_trait['traits']:
-                                if other_t in active_regions_set or other_t in active_classes_set: is_supported = True
-                            if is_supported: c_score += 1 
-
-            balance_penalty = 0
-            if tank_count < 2: balance_penalty = -10 
-            
-            targon_bonus = 0
-            if "Taric" in names: targon_bonus += 20
-            annie_penalty = -12 if "Annie" in names else 0
-            
-            final_r = r_score + (5 if has_galio else 0)
-            
-            strength_score = 0
-            if prioritize_strength:
-                strength_score = team_total_cost * 2.0 
-
-            smart_score = (final_r * 25.0) + \
-                          (c_score * 12.0) + \
-                          strength_score + \
-                          balance_penalty + unused_emblem_penalty + targon_bonus + annie_penalty + useless_unit_penalty + final_r_penalty
-            
-            r_list_fmt = [f"{r}({traits[r]})" for r in REGION_DATA if traits.get(r,0) >= REGION_DATA[r]['thresholds'][0]]
-            c_list_fmt = [f"{c}({traits[c]})" for c in CLASS_DATA if traits.get(c,0) >= CLASS_DATA[c][0] and c not in UNIQUE_TRAITS]
-            if traits.get("Darkin", 0) >= 1: c_list_fmt.append(f"Darkin({traits['Darkin']})")
-            
-            for u_trait in UNIQUE_TRAITS:
-                if traits.get(u_trait, 0) >= 1:
-                    if u_trait == "Blacksmith": c_list_fmt.append("Blacksmith")
                     else:
                         unit_with_trait = next((u for u in final_team if u_trait in u['traits']), None)
                         if unit_with_trait:
@@ -671,7 +638,7 @@ if run:
                                 elif tr in UNIQUE_TRAITS or tr == "Darkin": traits_html.append(f"<span style='color:#B8860B'><b>{tr}</b></span>")
                                 elif any(tr in x for x in r_l): traits_html.append(f"<span style='color:#2E7D32'><b>{tr}</b></span>")
                                 elif any(tr in x for x in c_l): traits_html.append(f"<span style='color:#E65100'><b>{tr}</b></span>")
-                                else: traits_html.append(f"<span style='color:#555'>{tr}</span>")
+                                else: traits_html.append(f"<span style='color:#555'>{tr}</b></span>")
 
                             name = "✨ GALIO (FREE)" if u['name'] == "Galio" else u['name']
                             if u['name'] == "Taric": name = "💎 TARIC"
