@@ -159,7 +159,7 @@ STANDARD_UNITS = [
     # 4 COST
     {"name": "Taric", "traits": ["Targon"], "cost": 4, "diff": 2, "role": "tank"},
     {"name": "Ambessa", "traits": ["Noxus", "Vanquisher"], "cost": 4, "diff": 2, "role": "carry"},
-    {"name": "Bel'Veth", "traits": ["Void", "Slayer"], "cost": 4, "diff": 2, "role": "carry"},
+    {"name": "Bel'Veth", "traits": ["Void", "Slayer", "Empress"], "cost": 4, "diff": 2, "role": "carry"},
     {"name": "Braum", "traits": ["Freljord", "Warden"], "cost": 4, "diff": 2, "role": "tank"},
     {"name": "Garen", "traits": ["Demacia", "Defender"], "cost": 4, "diff": 2, "role": "carry"},
     {"name": "Lissandra", "traits": ["Freljord", "Invoker"], "cost": 4, "diff": 2, "role": "carry"},
@@ -410,7 +410,6 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
             
             final_r = r_score + (5 if has_galio else 0) 
             
-            # === FIX BUG: BỎ QUA NẾU KHÔNG KÍCH HOẠT VÙNG ĐẤT NÀO ===
             if final_r == 0: continue
             # ==========================================================
 
@@ -425,17 +424,22 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
                     c_score += 2 
                     active_classes_set.add(cl)
             
+
             useless_unit_penalty = 0
             for u in final_team:
                 if u['name'] in ["Ryze", "Galio", "Taric", "Ornn"]: continue
+                
+                contributing_traits = [t for t in u['traits'] if t not in UNIQUE_TRAITS] 
+                
                 is_contributing = False
-                for t in u['traits']:
+                for t in contributing_traits: # CHỈ kiểm tra Tộc/Hệ đa đơn vị/Vùng đất
                     if t in active_regions_set or t in active_classes_set:
                         is_contributing = True
                         break
+                        
                 if not is_contributing:
                     if u['cost'] <= 2: useless_unit_penalty -= 30
-                    else: useless_unit_penalty -= 500
+                    else: useless_unit_penalty -= 500 
 
             targon_c = traits.get("Targon", 0)
             if targon_c == 1: useless_unit_penalty += 50
@@ -692,6 +696,7 @@ if run:
 
 elif not run:
     st.info("👈 Select Level -> Click FIND TEAMS")
+
 
 
 
