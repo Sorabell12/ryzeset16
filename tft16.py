@@ -408,11 +408,11 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
                 elif user_emblems.get(r, 0) > 0:
                     unused_emblem_penalty -= 15
             
-            final_r = r_score + (5 if has_galio else 0) # --- FIX: DEFINITION BEFORE USE ---
+            final_r = r_score + (5 if has_galio else 0) 
             
             final_r_penalty = 0
             if final_r == 0:
-                final_r_penalty = -99999999 # Invalidate team instantly
+                final_r_penalty = -99999999 
             elif final_r < 3 and slots >= 7 and not has_galio: 
                 final_r_penalty = -500
 
@@ -437,7 +437,7 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
 
             targon_c = traits.get("Targon", 0)
             if targon_c == 1: useless_unit_penalty += 50
-            elif targon_c > 1: uselesss_unit_penalty -= 20
+            elif targon_c > 1: useless_unit_penalty -= 20
             elif targon_c == 0: useless_unit_penalty -= 100 
 
             for u_trait in UNIQUE_TRAITS:
@@ -449,7 +449,7 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
                             is_supported = False
                             for other_t in unit_with_trait['traits']:
                                 if other_t in active_regions_set or other_t in active_classes_set: is_supported = True
-                            if is_supported: c_list_fmt.append(u_trait)
+                            if is_supported: c_score += 1 
 
             balance_penalty = 0
             if tank_count < 2: balance_penalty = -10 
@@ -465,7 +465,7 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
             smart_score = (final_r * 25.0) + \
                           (c_score * 12.0) + \
                           strength_score + \
-                          balance_penalty + unused_emblem_penalty + targon_bonus + annie_penalty + useless_unit_penalty + final_r_penalty # USING PENALTY HERE
+                          balance_penalty + unused_emblem_penalty + targon_bonus + annie_penalty + useless_unit_penalty + final_r_penalty
             
             r_list_fmt = [f"{r}({traits[r]})" for r in REGION_DATA if traits.get(r,0) >= REGION_DATA[r]['thresholds'][0]]
             c_list_fmt = [f"{c}({traits[c]})" for c in CLASS_DATA if traits.get(c,0) >= CLASS_DATA[c][0] and c not in UNIQUE_TRAITS]
