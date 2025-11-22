@@ -17,7 +17,6 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- DATASETS ---
-# Region Data (Ryze Buff Sources)
 REGION_DATA = {
     "Bilgewater":   {"thresholds": [3, 5, 7, 10]}, "Demacia": {"thresholds": [3, 5, 7, 11]},
     "Freljord":     {"thresholds": [3, 5, 7]}, "Ionia": {"thresholds": [3, 5, 7, 10]},
@@ -28,18 +27,16 @@ REGION_DATA = {
     "Zaun":         {"thresholds": [3, 5, 7]}
 }
 
-# Class Data (Team Synergies)
+# CẬP NHẬT ĐẦY ĐỦ HỆ ĐỘC NHẤT
 CLASS_DATA = {
-    # Combat Classes
+    # Normal Classes
     "Bruiser": [2, 4, 6], "Defender": [2, 4, 6], "Invoker": [2, 4, 6],
     "Slayer": [2, 4, 6], "Gunslinger": [2, 4, 6], "Arcanist": [2, 4, 6],
     "Warden": [2, 3, 4, 5], "Juggernaut": [2, 4, 6], "Longshot": [2, 3, 4, 5],
     "Quickstriker": [2, 3, 4, 5], "Disruptor": [2, 4], "Vanquisher": [2, 3, 4, 5],
     
-    # Darkin (1/2/3) - Special Synergy
+    # Unique Traits & Special
     "Darkin": [1, 2, 3],
-
-    # Unique Traits (1/1)
     "Heroic": [1], "The Boss": [1], "Emperor": [1], "Ascendant": [1], 
     "Star Forger": [1], "Caretaker": [1], "Rune Mage": [1], "Assimilator": [1],
     "Huntress": [1], "Glutton": [1], "Blacksmith": [1], "Soulbound": [1],
@@ -48,7 +45,7 @@ CLASS_DATA = {
     "Immortal": [1]
 }
 
-# Highlight Colors for Unique Traits
+# LIST ĐỂ TÔ MÀU VÀNG
 UNIQUE_TRAITS = [
     "Heroic", "The Boss", "Emperor", "Ascendant", "Star Forger", "Caretaker", 
     "Rune Mage", "Assimilator", "Huntress", "Glutton", "Blacksmith", "Soulbound", 
@@ -105,7 +102,8 @@ ALL_UNITS = [
     {"name": "Zoe", "traits": ["Targon"], "cost": 3, "diff": 1, "role": "carry"},
     {"name": "Kobuko & Yuumi", "traits": ["Yordle", "Bruiser", "Invoker"], "cost": 3, "diff": 2, "role": "tank"},
     
-    # 4 COST
+    # 4 COST (TARIC IS KING HERE)
+    {"name": "Taric", "traits": ["Targon"], "cost": 4, "diff": 2, "role": "tank"}, # VIP UNIT
     {"name": "Ambessa", "traits": ["Noxus", "Vanquisher"], "cost": 4, "diff": 2, "role": "carry"},
     {"name": "Bel'Veth", "traits": ["Void", "Slayer"], "cost": 4, "diff": 2, "role": "carry"},
     {"name": "Braum", "traits": ["Freljord", "Warden"], "cost": 4, "diff": 2, "role": "tank"},
@@ -115,7 +113,6 @@ ALL_UNITS = [
     {"name": "Miss Fortune", "traits": ["Bilgewater", "Gunslinger"], "cost": 4, "diff": 2, "role": "carry"},
     {"name": "Seraphine", "traits": ["Piltover", "Disruptor"], "cost": 4, "diff": 2, "role": "supp"},
     {"name": "Swain", "traits": ["Noxus", "Arcanist", "Juggernaut"], "cost": 4, "diff": 2, "role": "tank"},
-    {"name": "Taric", "traits": ["Targon"], "cost": 4, "diff": 2, "role": "tank"},
     {"name": "Wukong", "traits": ["Ionia", "Bruiser"], "cost": 4, "diff": 2, "role": "tank"},
     {"name": "Yunara", "traits": ["Ionia", "Quickstriker"], "cost": 4, "diff": 2, "role": "carry"},
     {"name": "Nidalee", "traits": ["Ixtal", "Huntress"], "cost": 4, "diff": 2, "role": "carry"},
@@ -129,7 +126,7 @@ ALL_UNITS = [
     {"name": "Veigar", "traits": ["Yordle", "Arcanist"], "cost": 4, "diff": 3, "role": "carry"},
     {"name": "Diana", "traits": ["Targon"], "cost": 4, "diff": 2, "role": "carry"},
 
-    # 5 COST (UPDATED WITH UNIQUE TRAITS & DARKIN)
+    # 5 COST
     {"name": "Aatrox", "traits": ["Darkin", "Slayer"], "cost": 5, "diff": 3, "role": "carry"},
     {"name": "Annie", "traits": ["Dark Child", "Arcanist"], "cost": 5, "diff": 3, "role": "carry"},
     {"name": "Azir", "traits": ["Shurima", "Emperor", "Disruptor"], "cost": 5, "diff": 3, "role": "carry"},
@@ -139,10 +136,8 @@ ALL_UNITS = [
     {"name": "Ornn", "traits": ["Blacksmith", "Warden"], "cost": 5, "diff": 3, "role": "tank"},
     {"name": "Shyvana", "traits": ["Dragonborn", "Juggernaut"], "cost": 5, "diff": 3, "role": "tank"},
     {"name": "Zilean", "traits": ["Chronokeeper", "Invoker"], "cost": 5, "diff": 3, "role": "supp"},
-
-    # 7 COST (UPDATED ZAAHEN WITH DARKIN)
     
-    # UNLOCKABLES (Common)
+    # LOWER UNLOCKABLES (Common)
     {"name": "Sett", "traits": ["Ionia", "The Boss"], "cost": 5, "diff": 3, "role": "tank"},
     {"name": "Volibear", "traits": ["Freljord", "Bruiser"], "cost": 5, "diff": 3, "role": "tank"},
     {"name": "Xerath", "traits": ["Shurima", "Ascendant"], "cost": 5, "diff": 3, "role": "carry"},
@@ -176,10 +171,8 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
         
         raw_pool = high_cost + mid_cost + efficient_low + targon
         final_pool = list({v['name']:v for v in raw_pool}.values())
-        
-        # Sort: Cost + (Trait Bonus)
         final_pool.sort(key=lambda x: x['cost'] + (1 if len(x['traits'])>=3 else 0), reverse=True)
-        final_pool = final_pool[:32]
+        final_pool = final_pool[:35] # Expanded for more Targon options
     else:
         connectors = [u for u in region_units if len([t for t in u['traits'] if t in REGION_DATA]) >= 2]
         others = [u for u in region_units if u not in connectors]
@@ -196,6 +189,7 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
 
         traits = {}
         tank_count = 0
+        names = [u['name'] for u in team]
         
         for u in team:
             if u.get('role') == 'tank': tank_count += 1
@@ -213,6 +207,7 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
             tank_count += 1
             for t in GALIO_UNIT['traits']: traits[t] = traits.get(t, 0) + 1
         
+        # Base Scores
         r_score = 0
         for r, data in REGION_DATA.items():
             if traits.get(r, 0) >= data['thresholds'][0]: r_score += 1
@@ -221,29 +216,34 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
         for cl, thresholds in CLASS_DATA.items():
             if traits.get(cl, 0) >= thresholds[0]: c_score += 1
             
-        # Unique Traits Check (Corrected Logic)
         for trait_name in UNIQUE_TRAITS:
              if traits.get(trait_name, 0) >= 1: c_score += 1
-        
-        # Darkin Check (1/2/3)
         if traits.get("Darkin", 0) >= 1: c_score += 1
 
+        # --- TARGON & TARIC PRIORITY LOGIC ---
+        targon_bonus = 0
+        if traits.get("Targon", 0) >= 1: 
+            targon_bonus += 3 # Base bonus for having Targon
+        
+        if "Taric" in names:
+            targon_bonus += 3 # Massive bonus for Taric specifically
+        
         balance_penalty = 0
         if tank_count < 2: balance_penalty = -5 
         elif tank_count < 3 and slots >= 8: balance_penalty = -2
         
         final_r = r_score + (5 if has_galio else 0)
         
+        # Smart Score Calculation
+        smart_score = (final_r * 1.5) + c_score + balance_penalty + targon_bonus
+        
+        # Formatter
         r_list_fmt = [f"{r}({traits[r]})" for r in REGION_DATA if traits.get(r,0) >= REGION_DATA[r]['thresholds'][0]]
         c_list_fmt = [f"{c}({traits[c]})" for c in CLASS_DATA if traits.get(c,0) >= CLASS_DATA[c][0]]
-        
-        # Append Unique/Darkin to display list
         for u_trait in UNIQUE_TRAITS:
             if traits.get(u_trait, 0) >= 1: c_list_fmt.append(f"{u_trait}")
         if traits.get("Darkin", 0) >= 1: c_list_fmt.append(f"Darkin({traits['Darkin']})")
 
-        smart_score = (final_r * 1.5) + c_score + balance_penalty
-        
         candidates.append({
             "team": final_team,
             "r_score": final_r,
@@ -257,7 +257,7 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
 
     if not candidates: return []
     
-    # 1. Balanced
+    # 1. Balanced (Smart)
     candidates.sort(key=lambda x: x['smart_score'], reverse=True)
     opt1 = candidates[0]
     
@@ -282,7 +282,7 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
 
 # --- UI ---
 st.title("🧙‍♂️ TFT Set 16: Ryze AI Tool")
-st.markdown("**Strategic Diversity:** Balance vs Regions vs Variations.")
+st.markdown("**Strategic Diversity:** Targon Priority + Role Balance.")
 
 with st.sidebar:
     st.header("⚙️ Config")
@@ -313,13 +313,13 @@ if run:
     
     def render(tab, pool, p_str=False):
         with tab:
-            if p_str: st.caption("Pool: 3+ Cost & 3-Trait Low Costs. (No Clones)")
+            if p_str: st.caption("Prioritizes **Taric/Targon**, 5-Costs, and High Value Units.")
             with st.spinner("Analyzing strategies..."):
                 res = solve_three_strategies(pool, slots, user_emblems, p_str)
             
             if res:
                 labels = [
-                    "👑 Option 1: BEST BALANCED (Smart AI)",
+                    "👑 Option 1: BEST BALANCED (AI Choice)",
                     "🌍 Option 2: MAX REGIONS (Ryze Max Power)",
                     "🛡️ Option 3: ALTERNATIVE VARIATION"
                 ]
@@ -354,6 +354,9 @@ if run:
                                 else: traits_html.append(f"<span style='color:#555'>{t}</span>")
 
                             name = "✨ GALIO (FREE)" if u['name'] == "Galio" else u['name']
+                            # Highlight Taric specifically
+                            if u['name'] == "Taric": name = "💎 TARIC (VIP)"
+                            
                             txt = f"{idx}. **{name}** {role_icon} : {' '.join(traits_html)}"
                             
                             if idx-2 < len(team)/2: cr.markdown(txt, unsafe_allow_html=True)
