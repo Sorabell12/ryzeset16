@@ -129,11 +129,19 @@ ALL_UNITS = [
     {"name": "Volibear", "traits": ["Freljord", "Bruiser"], "cost": 5, "diff": 3, "role": "tank"},
     {"name": "Xerath", "traits": ["Shurima", "Ascendant"], "cost": 5, "diff": 3, "role": "carry"},
     {"name": "Mel", "traits": ["Noxus", "Disruptor"], "cost": 5, "diff": 3, "role": "carry"},
+    {"name": "Tahm Kench", "traits": ["Bilgewater", "Glutton", "Bruiser"], "cost": 5, "diff": 3, "role": "tank"},
+    {"name": "Thresh", "traits": ["Shadow Isles", "Warden"], "cost": 5, "diff": 2, "role": "tank"},
+    {"name": "T-Hex", "traits": ["Piltover", "Gunslinger", "HexMech"], "cost": 5, "diff": 3, "role": "tank"},
     {"name": "Ziggs", "traits": ["Zaun", "Yordle", "Longshot"], "cost": 5, "diff": 3, "role": "carry"},
 
     # 7 COST
+    {"name": "Aurelion Sol", "traits": ["Targon", "Star Forger"], "cost": 7, "diff": 3, "role": "carry"},
+    {"name": "Sylas", "traits": ["Chainbreaker", "Arcanist", "Defender"], "cost": 7, "diff": 3, "role": "tank"},
+    {"name": "Baron Nashor", "traits": ["Void", "Riftscourge"], "cost": 7, "diff": 3, "role": "tank"},
+    {"name": "Brock", "traits": ["Ixtal"], "cost": 7, "diff": 3, "role": "tank"},
+    {"name": "Zaahen", "traits": ["Darkin", "Immortal"], "cost": 7, "diff": 3, "role": "carry"},
     
-    # LOWER UNLOCKABLES (Common)
+    # LOWER UNLOCKABLES
     {"name": "Bard", "traits": ["Caretaker"], "cost": 2, "diff": 2, "role": "supp"},
     {"name": "Orianna", "traits": ["Piltover", "Invoker"], "cost": 2, "diff": 2, "role": "supp"},
     {"name": "Poppy", "traits": ["Demacia", "Yordle", "Juggernaut"], "cost": 1, "diff": 1, "role": "tank"},
@@ -145,53 +153,11 @@ ALL_UNITS = [
     {"name": "Kennen", "traits": ["Ionia", "Yordle", "Defender"], "cost": 1, "diff": 1, "role": "tank"},
     {"name": "LeBlanc", "traits": ["Noxus", "Invoker"], "cost": 3, "diff": 2, "role": "carry"},
     {"name": "Fizz", "traits": ["Bilgewater", "Yordle"], "cost": 1, "diff": 2, "role": "carry"},
+    {"name": "Warwick", "traits": ["Zaun", "Quickstriker"], "cost": 1, "diff": 1, "role": "carry"},
+    {"name": "Yone", "traits": ["Ionia", "Slayer"], "cost": 1, "diff": 1, "role": "carry"},
 ]
 
-# --- UNLOCK ALGORITHM ---
-def solve_unlock_mission(pool, slots, user_emblems):
-    candidates = []
-    limit_max = 500000 
-    loop_count = 0
-
-    region_units = [u for u in pool if any(t in REGION_DATA for t in u['traits'])]
-    region_units.sort(key=lambda x: x['cost'])
-    search_pool = region_units[:20]
-
-    for team in itertools.combinations(search_pool, slots):
-        loop_count += 1
-        if loop_count > limit_max: break
-        if len(set([u['name'] for u in team])) < len(team): continue
-
-        traits = {}
-        total_cost = 0
-        
-        for u in team:
-            total_cost += u.get('cost', 1)
-            for t in u['traits']:
-                traits[t] = traits.get(t, 0) + 1
-        for emb, count in user_emblems.items():
-            traits[emb] = traits.get(emb, 0) + count
-            
-        active_regions = 0
-        active_list = []
-        for r, data in REGION_DATA.items():
-            if traits.get(r, 0) >= data['thresholds'][0]:
-                active_regions += 1
-                active_list.append(f"{r}({traits[r]})")
-        
-        if active_regions >= 5:
-            candidates.append({
-                "team": list(team),
-                "active_count": active_regions,
-                "cost": total_cost,
-                "regions": active_list
-            })
-            if len(candidates) >= 5 and total_cost < 20: break
-    
-    candidates.sort(key=lambda x: (-x['active_count'], x['cost']))
-    return candidates[:3]
-
-# --- MAIN ALGORITHM ---
+# --- ALGORITHM ---
 def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False):
     region_units = [u for u in pool if any(t in REGION_DATA for t in u['traits'])]
     targon = [u for u in pool if "Targon" in u['traits']]
@@ -202,12 +168,12 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
         efficient_low = [u for u in region_units if u['cost'] < 3 and len(u['traits']) >= 3]
         raw_pool = high_cost + mid_cost + efficient_low + targon
         final_pool = list({v['name']:v for v in raw_pool}.values())
+        # NO GOD TIER BIAS in sort
         final_pool.sort(key=lambda x: 100 if x['name'] == "Taric" else (x['cost'] + (1 if len(x['traits'])>=3 else 0)), reverse=True)
         final_pool = final_pool[:35] 
     else:
-        # STANDARD & LOW COST POOL: Include 1, 2, 3 Costs
-        low_mid_cost = [u for u in pool if u['cost'] <= 3] # Allow 3 costs
-        final_pool = low_mid_cost 
+        low_cost_all = [u for u in pool if u['cost'] <= 3] 
+        final_pool = low_cost_all 
         final_pool.sort(key=lambda x: len(x['traits']), reverse=True)
         final_pool = final_pool[:28] 
 
@@ -235,7 +201,7 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
         
         has_galio = False
         final_team = list(team)
-        if traits.get("Demacia", 0) >= 6:
+        if traits.get("Demacia", 0) >= 5:
             has_galio = True
             final_team.append(GALIO_UNIT)
             tank_count += 1
@@ -245,13 +211,13 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
         unused_emblem_penalty = 0
         active_regions_set = set()
         
-        # REGION SCORING & ANTI-VERTICAL
+        # REGION SCORING
         for r, data in REGION_DATA.items():
             count = traits.get(r, 0)
             if count >= data['thresholds'][0]: 
                 r_score += 1
                 active_regions_set.add(r)
-                
+                # Sprawl Penalty
                 current_tier_threshold = 0
                 for t in data['thresholds']:
                     if count >= t: current_tier_threshold = t
@@ -268,11 +234,15 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
                 c_score += 1
                 active_classes_set.add(cl)
         
-        # DEADWEIGHT CHECK
+        # DEADWEIGHT CHECK (NO EXCEPTIONS)
         useless_unit_penalty = 0
+        targon_c = traits.get("Targon", 0)
+        if targon_c == 1: useless_unit_penalty += 50
+        elif targon_c > 1: useless_unit_penalty -= 30
+        elif targon_c == 0: useless_unit_penalty -= 100
+        
         for u in final_team:
             if u['name'] in ["Ryze", "Galio", "Taric", "Ornn"]: continue
-            # NO GOD TIER EXCEPTION
             
             if "Targon" in u['traits']: continue
             
@@ -284,7 +254,7 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
             
             has_any_region_trait = any(t in REGION_DATA for t in u['traits'])
             if has_any_region_trait and not is_active_region:
-                useless_unit_penalty -= 50 # Penalty for dead region unit
+                useless_unit_penalty -= 50 # Penalty
 
         # Unique Logic
         for u_trait in UNIQUE_TRAITS:
@@ -304,8 +274,6 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
         elif tank_count < 3 and slots >= 8: balance_penalty = -2
         
         targon_bonus = 0
-        if traits.get("Targon", 0) == 1: targon_bonus = 50 # Massive bonus for exactly 1 Targon
-        elif traits.get("Targon", 0) > 1: targon_bonus = -30 # Penalty for > 1
         if "Taric" in names: targon_bonus += 20
         
         annie_penalty = -12 if "Annie" in names else 0
@@ -366,7 +334,7 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
 
 # --- UI ---
 st.title("🧙‍♂️ TFT Set 16: Ryze AI Tool")
-st.markdown("**Strategic Diversity:** Uniform Logic for All Tiers.")
+st.markdown("**Strategic Diversity:** Full Optimization.")
 
 with st.sidebar:
     st.header("⚙️ Config")
@@ -460,7 +428,7 @@ if run:
                         
                         st.divider()
                         cl, cr = st.columns(2)
-                        cl.markdown("1. **Ryze** <span style='color:blue'>**(Carry)**</span>", unsafe_allow_html=True)
+                        cl.markdown("1. **Ryze** (7🟡) <span style='color:blue'>**(Carry)**</span>", unsafe_allow_html=True)
                         
                         idx = 2
                         for u in team:
@@ -481,7 +449,7 @@ if run:
                             if u['name'] == "Taric": name = "💎 TARIC"
                             if u['name'] == "Ornn": name = "🔨 ORNN"
                             
-                            txt = f"{idx}. **{name}**{unit_note} {role_icon} : {' '.join(traits_html)}"
+                            txt = f"{idx}. **{name}**{unit_note} ({u['cost']}🟡) {role_icon} : {' '.join(traits_html)}"
                             
                             if idx-2 < len(team)/2: cr.markdown(txt, unsafe_allow_html=True)
                             else: cl.markdown(txt, unsafe_allow_html=True)
