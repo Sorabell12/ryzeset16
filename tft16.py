@@ -199,7 +199,6 @@ UNLOCKABLE_UNITS = [
     # 4 COST
     {"name": "Fizz", "traits": ["Bilgewater", "Yordle"], "cost": 4, "diff": 2, "role": "carry"},
     {"name": "Warwick", "traits": ["Zaun", "Quickstriker"], "cost": 4, "diff": 1, "role": "carry"},
-    {"name": "Yone", "traits": ["Ionia", "Slayer"], "cost": 4, "diff": 1, "role": "carry"},
     {"name": "Nidalee", "traits": ["Ixtal", "Huntress"], "cost": 4, "diff": 2, "role": "carry"},
     {"name": "Skarner", "traits": ["Ixtal"], "cost": 4, "diff": 2, "role": "tank"},
     {"name": "Rift Herald", "traits": ["Void", "Bruiser"], "cost": 4, "diff": 2, "role": "tank"},
@@ -696,6 +695,7 @@ if run:
 
 elif not run:
     st.info("👈 Select Level -> Click FIND TEAMS")
+
 
 
 
