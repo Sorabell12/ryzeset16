@@ -13,7 +13,8 @@ st.markdown("""
         }
         div.stButton > button:hover { background-color: #FF0000; color: white; }
         .streamlit-expanderHeader { font-weight: bold; font-size: 1.1rem; }
-        .css-16idsys p { font-size: 14px; }
+        /* Custom scrollbar for emblem inputs */
+        .stNumberInput input { padding-right: 0px; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -46,7 +47,7 @@ UNIQUE_TRAITS = list(CLASS_DATA.keys())[-22:]
 
 GALIO_UNIT = {"name": "Galio", "traits": ["Demacia", "Invoker", "Heroic"], "cost": 5, "diff": 3, "role": "tank"}
 
-# --- UNIT LISTS ---
+# --- UNIT LISTS (FINAL CORRECTED DATA) ---
 STANDARD_UNITS = [
     # 1 COST
     {"name": "Anivia", "traits": ["Freljord", "Invoker"], "cost": 1, "diff": 1, "role": "carry"},
@@ -158,20 +159,25 @@ UNLOCKABLE_UNITS = [
 
 ALL_UNITS = STANDARD_UNITS + UNLOCKABLE_UNITS
 
-# --- ALGORITHM 1: UNLOCK MISSION ---
+# --- ALGORITHM 1: UNLOCK MISSION (PARALLEL SEARCH & CLASSIFICATION) ---
 def solve_unlock_mission(slots, user_emblems):
     candidates = []
     limit_max = 10000000 
     loop_count = 0
 
+    # 1. POOL: Sử dụng TOÀN BỘ tướng để tìm kiếm song song
     region_units = [u for u in ALL_UNITS if any(t in REGION_DATA for t in u['traits'])]
     
+    # 2. SCORING: Ưu tiên Standard (Basic) hơn Unlock
     def get_unlock_score(u):
         score = 0
+        # Tướng Standard được ưu tiên tuyệt đối
         if any(u['name'] == su['name'] for su in STANDARD_UNITS):
             score += 5000
+        # Tướng đa hệ vùng đất (Bridge Units)
         r_count = sum(1 for t in u['traits'] if t in REGION_DATA)
         if r_count >= 2: score += 1000
+        # Tướng trùng Ấn
         for t in u['traits']:
             if t in user_emblems: score += 100
             if t == "Targon": score += 50 
@@ -180,6 +186,7 @@ def solve_unlock_mission(slots, user_emblems):
 
     region_units.sort(key=get_unlock_score, reverse=True)
     
+    # 3. DIVERSITY: Đảm bảo có đủ tướng Standard và Unlock để so sánh
     standard_best = [u for u in region_units if any(u['name'] == su['name'] for su in STANDARD_UNITS)][:28]
     unlock_best = [u for u in region_units if any(u['name'] == uu['name'] for uu in UNLOCKABLE_UNITS)][:10]
     search_pool = standard_best + unlock_best
@@ -191,12 +198,13 @@ def solve_unlock_mission(slots, user_emblems):
 
         traits = {}
         total_cost = 0
-        unlock_count = 0
+        unlock_count = 0 
         
         for u in team:
             total_cost += u.get('cost', 1)
             if any(u['name'] == ul['name'] for ul in UNLOCKABLE_UNITS):
                 unlock_count += 1
+                
             for t in u['traits']:
                 traits[t] = traits.get(t, 0) + 1
                 
@@ -223,7 +231,7 @@ def solve_unlock_mission(slots, user_emblems):
     candidates.sort(key=lambda x: (-x['active_count'], x['unlock_count'], x['cost']))
     return candidates[:5]
 
-# --- ALGORITHM 2: STANDARD OPTIMIZER ---
+# --- ALGORITHM 2: STANDARD OPTIMIZER (SYNERGY NETWORK + ANNIE FIX) ---
 def build_synergy_pool(base_pool, user_emblems, prioritize_strength=False):
     seed_traits = set(user_emblems.keys())
     seed_traits.add("Targon")
@@ -253,6 +261,7 @@ def build_synergy_pool(base_pool, user_emblems, prioritize_strength=False):
             final_pool.append(u)
             seen_names.add(u['name'])
 
+    # FORCE PARTNERS FOR HIGH COST UNITS (e.g. Ziggs needs Yordles)
     high_value_units = [u for u in final_pool if u['cost'] >= 4]
     for hv in high_value_units:
         for t in hv['traits']:
@@ -291,6 +300,7 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
             if loop_count > limit_max: break
             if len(set([u['name'] for u in team])) < len(team): continue
 
+            # ANNIE SLOT LOGIC
             slots_used = 0
             has_annie = False
             for u in team:
@@ -343,6 +353,7 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
                 elif user_emblems.get(r, 0) > 0:
                     unused_emblem_penalty -= 15
             
+            # CLASS SCORING: Standard (+2) > Unique (+1)
             c_score = 0
             active_classes_set = set()
             for cl, thresholds in CLASS_DATA.items():
@@ -468,15 +479,36 @@ with st.sidebar:
             
     with st.expander("🛡️ Class/Trait Emblems", expanded=False):
         cols = st.columns(2)
-        keys = sorted(list(CLASS_DATA.keys())) # Convert to list
+        keys = sorted(list(CLASS_DATA.keys())) 
         for i, k in enumerate(keys):
             v = cols[i%2].number_input(k, 0, 3, key=f"c_{k}")
             if v: c_emblems[k] = v
             
-    # Combine all emblems for the algorithm
     user_emblems = {**r_emblems, **c_emblems}
 
+    # --- PAYPAL DONATE ---
+    st.markdown("---")
+    st.markdown("### ☕ Support Dev")
+    paypal_url = "https://www.paypal.com/paypalme/nhutquang2208" 
+    st.markdown(f"""
+        <a href="{paypal_url}" target="_blank" style="text-decoration: none;">
+            <div style="
+                background-color: #0070BA; 
+                color: white; 
+                padding: 10px 15px; 
+                border-radius: 5px; 
+                text-align: center; 
+                font-weight: bold;
+                box-shadow: 0px 2px 5px rgba(0,0,0,0.2);
+                transition: 0.3s;
+            ">
+                💙 Donate via PayPal
+            </div>
+        </a>
+    """, unsafe_allow_html=True)
+
 if run:
+    # --- SLOT LOGIC FIX ---
     slots_for_unlock = level
     slots_for_combat = level - 1 
     
@@ -568,9 +600,8 @@ if run:
                         for u in team:
                             role_icon = "🛡️" if u.get('role')=='tank' else ("⚔️" if u.get('role')=='carry' else "❤️")
                             traits_html = []
-                            
-                            unit_note = ""
-                            if u['name'] == "Annie": unit_note = " (+Tibbers)"
+                            unit_note = " (+Tibbers)" if u['name'] == "Annie" else ""
+                            if u['name'] == "Annie": unit_note += " 🐻 (2 Slots)"
                             
                             for t in u['traits']:
                                 if "Targon" in t: traits_html.append(f"<span style='color:#9C27B0'><b>{t}</b></span>")
