@@ -214,7 +214,7 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
         # Sort by Taric > Cost > Efficiency
         final_pool.sort(key=lambda x: 100 if x['name'] == "Taric" else (x['cost'] * 2 + (1 if len(x['traits'])>=3 else 0)), reverse=True)
         # Increased pool size to ensure 4-costs like Braum are included
-        final_pool = final_pool[:40] 
+        final_pool = final_pool[:60] 
     else:
         low_cost_all = [u for u in pool if u['cost'] <= 3] 
         final_pool = low_cost_all 
@@ -524,3 +524,4 @@ if run:
 
 elif not run:
     st.info("👈 Select Level -> Click FIND TEAMS")
+
