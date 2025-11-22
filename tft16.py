@@ -89,7 +89,6 @@ ALL_UNITS = [
     {"name": "Sejuani", "traits": ["Freljord", "Defender"], "cost": 3, "diff": 1, "role": "tank"}, 
     {"name": "Vayne", "traits": ["Demacia", "Longshot"], "cost": 3, "diff": 1, "role": "carry"},
     {"name": "Zoe", "traits": ["Targon"], "cost": 3, "diff": 1, "role": "carry"},
-    {"name": "Kobuko & Yuumi", "traits": ["Yordle", "Bruiser", "Invoker"], "cost": 3, "diff": 2, "role": "tank"},
     
     # 4 COST
     {"name": "Taric", "traits": ["Targon"], "cost": 4, "diff": 2, "role": "tank"},
@@ -104,16 +103,6 @@ ALL_UNITS = [
     {"name": "Swain", "traits": ["Noxus", "Arcanist", "Juggernaut"], "cost": 4, "diff": 2, "role": "tank"},
     {"name": "Wukong", "traits": ["Ionia", "Bruiser"], "cost": 4, "diff": 2, "role": "tank"},
     {"name": "Yunara", "traits": ["Ionia", "Quickstriker"], "cost": 4, "diff": 2, "role": "carry"},
-    {"name": "Nidalee", "traits": ["Ixtal", "Huntress"], "cost": 4, "diff": 2, "role": "carry"},
-    {"name": "Skarner", "traits": ["Ixtal"], "cost": 4, "diff": 2, "role": "tank"},
-    {"name": "Rift Herald", "traits": ["Void", "Bruiser"], "cost": 4, "diff": 2, "role": "tank"},
-    {"name": "Singed", "traits": ["Zaun", "Juggernaut"], "cost": 4, "diff": 2, "role": "tank"},
-    {"name": "Kai'Sa", "traits": ["Void", "Longshot", "Assimilator"], "cost": 4, "diff": 2, "role": "carry"},
-    {"name": "Kalista", "traits": ["Shadow Isles", "Vanquisher"], "cost": 4, "diff": 2, "role": "carry"},
-    {"name": "Nasus", "traits": ["Shurima"], "cost": 4, "diff": 2, "role": "tank"},
-    {"name": "Renekton", "traits": ["Shurima"], "cost": 4, "diff": 2, "role": "tank"},
-    {"name": "Veigar", "traits": ["Yordle", "Arcanist"], "cost": 4, "diff": 3, "role": "carry"},
-    {"name": "Diana", "traits": ["Targon"], "cost": 4, "diff": 2, "role": "carry"},
 
     # 5 COST
     {"name": "Aatrox", "traits": ["Darkin", "Slayer"], "cost": 5, "diff": 3, "role": "carry"},
@@ -125,23 +114,26 @@ ALL_UNITS = [
     {"name": "Ornn", "traits": ["Blacksmith", "Warden"], "cost": 5, "diff": 3, "role": "tank"},
     {"name": "Shyvana", "traits": ["Dragonborn", "Juggernaut"], "cost": 5, "diff": 3, "role": "tank"},
     {"name": "Zilean", "traits": ["Chronokeeper", "Invoker"], "cost": 5, "diff": 3, "role": "supp"},
+
+    # 7 COST
+    
+    # LOWER UNLOCKABLES
+    {"name": "Nidalee", "traits": ["Ixtal", "Huntress"], "cost": 4, "diff": 2, "role": "carry"},
+    {"name": "Skarner", "traits": ["Ixtal"], "cost": 4, "diff": 2, "role": "tank"},
+    {"name": "Rift Herald", "traits": ["Void", "Bruiser"], "cost": 4, "diff": 2, "role": "tank"},
+    {"name": "Singed", "traits": ["Zaun", "Juggernaut"], "cost": 4, "diff": 2, "role": "tank"},
+    {"name": "Kai'Sa", "traits": ["Void", "Longshot", "Assimilator"], "cost": 4, "diff": 2, "role": "carry"},
+    {"name": "Kalista", "traits": ["Shadow Isles", "Vanquisher"], "cost": 4, "diff": 2, "role": "carry"},
+    {"name": "Nasus", "traits": ["Shurima"], "cost": 4, "diff": 2, "role": "tank"},
+    {"name": "Renekton", "traits": ["Shurima"], "cost": 4, "diff": 2, "role": "tank"},
+    {"name": "Veigar", "traits": ["Yordle", "Arcanist"], "cost": 4, "diff": 3, "role": "carry"},
+    {"name": "Diana", "traits": ["Targon"], "cost": 4, "diff": 2, "role": "carry"},
     {"name": "Sett", "traits": ["Ionia", "The Boss"], "cost": 5, "diff": 3, "role": "tank"},
     {"name": "Volibear", "traits": ["Freljord", "Bruiser"], "cost": 5, "diff": 3, "role": "tank"},
     {"name": "Xerath", "traits": ["Shurima", "Ascendant"], "cost": 5, "diff": 3, "role": "carry"},
     {"name": "Mel", "traits": ["Noxus", "Disruptor"], "cost": 5, "diff": 3, "role": "carry"},
-    {"name": "Tahm Kench", "traits": ["Bilgewater", "Glutton", "Bruiser"], "cost": 5, "diff": 3, "role": "tank"},
-    {"name": "Thresh", "traits": ["Shadow Isles", "Warden"], "cost": 5, "diff": 2, "role": "tank"},
-    {"name": "T-Hex", "traits": ["Piltover", "Gunslinger", "HexMech"], "cost": 5, "diff": 3, "role": "tank"},
     {"name": "Ziggs", "traits": ["Zaun", "Yordle", "Longshot"], "cost": 5, "diff": 3, "role": "carry"},
-
-    # 7 COST
-    {"name": "Aurelion Sol", "traits": ["Targon", "Star Forger"], "cost": 7, "diff": 3, "role": "carry"},
-    {"name": "Sylas", "traits": ["Chainbreaker", "Arcanist", "Defender"], "cost": 7, "diff": 3, "role": "tank"},
-    {"name": "Baron Nashor", "traits": ["Void", "Riftscourge"], "cost": 7, "diff": 3, "role": "tank"},
-    {"name": "Brock", "traits": ["Ixtal"], "cost": 7, "diff": 3, "role": "tank"},
-    {"name": "Zaahen", "traits": ["Darkin", "Immortal"], "cost": 7, "diff": 3, "role": "carry"},
-    
-    # LOWER UNLOCKABLES
+    {"name": "Kobuko & Yuumi", "traits": ["Yordle", "Bruiser", "Invoker"], "cost": 3, "diff": 2, "role": "tank"},
     {"name": "Bard", "traits": ["Caretaker"], "cost": 2, "diff": 2, "role": "supp"},
     {"name": "Orianna", "traits": ["Piltover", "Invoker"], "cost": 2, "diff": 2, "role": "supp"},
     {"name": "Poppy", "traits": ["Demacia", "Yordle", "Juggernaut"], "cost": 1, "diff": 1, "role": "tank"},
@@ -157,7 +149,56 @@ ALL_UNITS = [
     {"name": "Yone", "traits": ["Ionia", "Slayer"], "cost": 1, "diff": 1, "role": "carry"},
 ]
 
-# --- ALGORITHM ---
+# --- UNLOCK ALGORITHM (THE MISSING FUNCTION) ---
+def solve_unlock_mission(pool, slots, user_emblems):
+    candidates = []
+    limit_max = 500000 
+    loop_count = 0
+
+    # Filter pool for Unlock mission (Focus on Units with Regions)
+    region_units = [u for u in pool if any(t in REGION_DATA for t in u['traits'])]
+    # Prefer cheaper units for easier unlock
+    region_units.sort(key=lambda x: x['cost'])
+    search_pool = region_units[:20]
+
+    for team in itertools.combinations(search_pool, slots):
+        loop_count += 1
+        if loop_count > limit_max: break
+        if len(set([u['name'] for u in team])) < len(team): continue
+
+        traits = {}
+        total_cost = 0
+        
+        for u in team:
+            total_cost += u.get('cost', 1)
+            for t in u['traits']:
+                traits[t] = traits.get(t, 0) + 1
+        for emb, count in user_emblems.items():
+            traits[emb] = traits.get(emb, 0) + count
+            
+        active_regions = 0
+        active_list = []
+        for r, data in REGION_DATA.items():
+            if traits.get(r, 0) >= data['thresholds'][0]:
+                active_regions += 1
+                active_list.append(f"{r}({traits[r]})")
+        
+        # Threshold for Unlock is 5 Regions
+        if active_regions >= 5:
+            candidates.append({
+                "team": list(team),
+                "active_count": active_regions,
+                "cost": total_cost,
+                "regions": active_list
+            })
+            # Early exit optimization
+            if len(candidates) >= 5 and total_cost < 25: break
+    
+    # Sort by: Max Regions DESC, then Min Cost ASC
+    candidates.sort(key=lambda x: (-x['active_count'], x['cost']))
+    return candidates[:3]
+
+# --- MAIN ALGORITHM ---
 def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False):
     region_units = [u for u in pool if any(t in REGION_DATA for t in u['traits'])]
     targon = [u for u in pool if "Targon" in u['traits']]
@@ -166,9 +207,10 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
         high_cost = [u for u in pool if u['cost'] >= 4]
         mid_cost = [u for u in pool if u['cost'] == 3]
         efficient_low = [u for u in region_units if u['cost'] < 3 and len(u['traits']) >= 3]
+        
         raw_pool = high_cost + mid_cost + efficient_low + targon
         final_pool = list({v['name']:v for v in raw_pool}.values())
-        # NO GOD TIER BIAS in sort
+        # Sort by Taric > Cost > Efficiency
         final_pool.sort(key=lambda x: 100 if x['name'] == "Taric" else (x['cost'] + (1 if len(x['traits'])>=3 else 0)), reverse=True)
         final_pool = final_pool[:35] 
     else:
@@ -201,7 +243,7 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
         
         has_galio = False
         final_team = list(team)
-        if traits.get("Demacia", 0) >= 5:
+        if traits.get("Demacia", 0) >= 6:
             has_galio = True
             final_team.append(GALIO_UNIT)
             tank_count += 1
@@ -234,16 +276,17 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
                 c_score += 1
                 active_classes_set.add(cl)
         
-        # DEADWEIGHT CHECK (NO EXCEPTIONS)
+        # DEADWEIGHT CHECK (NO GOD TIER EXCEPTION)
         useless_unit_penalty = 0
+        
+        # 1. TARGON RULE
         targon_c = traits.get("Targon", 0)
-        if targon_c == 1: useless_unit_penalty += 50
-        elif targon_c > 1: useless_unit_penalty -= 30
-        elif targon_c == 0: useless_unit_penalty -= 100
+        if targon_c == 1: useless_unit_penalty += 50 # Bonus for exactly 1
+        elif targon_c > 1: useless_unit_penalty -= 20 # Penalty for >1
+        elif targon_c == 0: useless_unit_penalty -= 100 # Penalty for 0 (Ryze needs it)
         
         for u in final_team:
             if u['name'] in ["Ryze", "Galio", "Taric", "Ornn"]: continue
-            
             if "Targon" in u['traits']: continue
             
             is_active_region = False
@@ -253,8 +296,9 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
                     break
             
             has_any_region_trait = any(t in REGION_DATA for t in u['traits'])
+            # DEADWEIGHT: Has region but not active
             if has_any_region_trait and not is_active_region:
-                useless_unit_penalty -= 50 # Penalty
+                useless_unit_penalty -= 50 
 
         # Unique Logic
         for u_trait in UNIQUE_TRAITS:
@@ -377,14 +421,11 @@ if run:
                 
                 if res:
                     for i, data in enumerate(res):
-                        # Expand First Option Only
                         expanded = (i==0)
                         title = f"🎯 Option {i+1}: {data['active_count']} Regions (Cost: {data['cost']}🟡)"
                         
                         with st.expander(title, expanded=expanded):
                             st.success(f"**Active:** {', '.join(data['regions'])}")
-                            
-                            # 4 Column Layout for Units
                             cols = st.columns(2)
                             idx = 1
                             for u in data['team']:
