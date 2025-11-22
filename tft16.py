@@ -103,8 +103,8 @@ ALL_UNITS = [
     {"name": "Ornn", "traits": ["Blacksmith", "Warden"], "cost": 5, "diff": 3, "role": "tank"},
     {"name": "Shyvana", "traits": ["Dragonborn", "Juggernaut"], "cost": 5, "diff": 3, "role": "tank"},
     {"name": "Zilean", "traits": ["Chronokeeper", "Invoker"], "cost": 5, "diff": 3, "role": "supp"},
+
     # 7 COST
-    {"name": "Ryze (Clone)", "traits": ["Rune Mage"], "cost": 7, "diff": 3, "role": "carry"},
     # UNLOCKABLES
     {"name": "Aatrox", "traits": ["Darkin", "Slayer"], "cost": 5, "diff": 3, "role": "carry"},
     {"name": "Sett", "traits": ["Ionia", "The Boss"], "cost": 5, "diff": 3, "role": "tank"},
@@ -133,31 +133,23 @@ ALL_UNITS = [
     {"name": "Yone", "traits": ["Ionia", "Slayer"], "cost": 1, "diff": 1, "role": "carry"},
 ]
 
-# --- ALGORITHM: 3 STRATEGIES ---
+# --- ALGORITHM ---
 def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False):
-    # 1. Filter Pool
     region_units = [u for u in pool if any(t in REGION_DATA for t in u['traits'])]
     targon = [u for u in pool if "Targon" in u['traits']]
     
     if prioritize_strength:
-        # EXODIA POOL REVISED:
-        # 1. High Cost (4, 5, 7)
+        # EXODIA POOL
         high_cost = [u for u in pool if u['cost'] >= 4]
-        
-        # 2. Mid Cost (3) - IMPORTANT for Sejuani/Taric etc.
         mid_cost = [u for u in pool if u['cost'] == 3]
-        
-        # 3. Low Cost High Efficiency (3 Traits) - IMPORTANT for Vi/Briar/Neeko
         efficient_low = [u for u in region_units if u['cost'] < 3 and len(u['traits']) >= 3]
         
-        # Combine & Unique
         raw_pool = high_cost + mid_cost + efficient_low + targon
         final_pool = list({v['name']:v for v in raw_pool}.values())
         
-        # Limit pool size for performance
-        # Sort by: Cost + (1 if 3 traits)
+        # Sort: Cost + (Trait Bonus)
         final_pool.sort(key=lambda x: x['cost'] + (1 if len(x['traits'])>=3 else 0), reverse=True)
-        final_pool = final_pool[:32] # Increased slightly to allow more variation
+        final_pool = final_pool[:32]
     else:
         connectors = [u for u in region_units if len([t for t in u['traits'] if t in REGION_DATA]) >= 2]
         others = [u for u in region_units if u not in connectors]
@@ -165,7 +157,6 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
 
     limit_max = 1500000
     loop_count = 0
-    
     candidates = []
 
     for team in itertools.combinations(final_pool, slots):
@@ -183,7 +174,7 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
         for emb, count in user_emblems.items():
             traits[emb] = traits.get(emb, 0) + count
         
-        # Galio Logic
+        # Galio
         has_galio = False
         final_team = list(team)
         if traits.get("Demacia", 0) >= 5:
@@ -201,62 +192,63 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
             if traits.get(cl, 0) >= thresholds[0]: c_score += 1
             elif cl == "Heroic" and traits.get(cl, 0) >= 1: c_score += 1
 
-        # Penalties
         balance_penalty = 0
         if tank_count < 2: balance_penalty = -5 
         elif tank_count < 3 and slots >= 8: balance_penalty = -2
         
         final_r = r_score + (5 if has_galio else 0)
         
-        # Store Metrics
         r_list_fmt = [f"{r}({traits[r]})" for r in REGION_DATA if traits.get(r,0) >= REGION_DATA[r]['thresholds'][0]]
         c_list_fmt = [f"{c}({traits[c]})" for c in CLASS_DATA if traits.get(c,0) >= CLASS_DATA[c][0] or (c=="Heroic" and traits.get(c,0)>=1)]
         
-        # Combined Smart Score (Weighted Average)
-        # Weight Regions slightly higher than Classes
+        # Smart Score (Balanced)
+        # We weight Regions higher, but balance matters
         smart_score = (final_r * 1.5) + c_score + balance_penalty
         
         candidates.append({
             "team": final_team,
-            "r_score": final_r,
-            "c_score": c_score,
-            "smart_score": smart_score,
+            "r_score": final_r, # Used for Opt 2
+            "smart_score": smart_score, # Used for Opt 1 and Opt 3 (Alternative)
             "r_list": r_list_fmt,
             "c_list": c_list_fmt,
             "galio": has_galio,
             "tanks": tank_count
         })
 
-    # --- STRATEGY SELECTION ---
     if not candidates: return []
+    
+    # --- SELECTION LOGIC RESTORED ---
     
     # 1. Best Balanced (Smart Score)
     candidates.sort(key=lambda x: x['smart_score'], reverse=True)
     opt1 = candidates[0]
     
-    # 2. Max Regions (Focus purely on R_SCORE)
+    # 2. Max Regions (Focus purely on R_SCORE, then smart score)
     candidates.sort(key=lambda x: (x['r_score'], x['smart_score']), reverse=True)
     opt2 = candidates[0]
+    # Force Opt2 to be distinct from Opt1 if possible
     if opt2['team'] == opt1['team']:
         for cand in candidates:
             if cand['team'] != opt1['team']:
                 opt2 = cand
                 break
     
-    # 3. Max Classes (Focus purely on C_SCORE)
-    candidates.sort(key=lambda x: (x['c_score'], x['smart_score']), reverse=True)
-    opt3 = candidates[0]
-    if opt3['team'] == opt1['team'] or opt3['team'] == opt2['team']:
-        for cand in candidates:
-            if cand['team'] != opt1['team'] and cand['team'] != opt2['team']:
-                opt3 = cand
-                break
+    # 3. Alternative Variation (Use Smart Score, but find distinct team)
+    # Reset sort to Smart Score
+    candidates.sort(key=lambda x: x['smart_score'], reverse=True)
+    opt3 = candidates[0] # Default fallback
+    
+    for cand in candidates:
+        # Find first candidate that is NOT Opt1 AND NOT Opt2
+        if cand['team'] != opt1['team'] and cand['team'] != opt2['team']:
+            opt3 = cand
+            break
     
     return [opt1, opt2, opt3]
 
 # --- UI ---
 st.title("🧙‍♂️ TFT Set 16: Ryze AI Tool")
-st.markdown("**Strategic Diversity:** Balance vs Regions vs Classes.")
+st.markdown("**Strategic Diversity:** Balance vs Regions vs Variations.")
 
 with st.sidebar:
     st.header("⚙️ Config")
@@ -287,20 +279,19 @@ if run:
     
     def render(tab, pool, p_str=False):
         with tab:
-            if p_str: st.caption("Pool: 3+ Cost & 3-Trait Low Costs.")
+            if p_str: st.caption("Pool: 3+ Cost & 3-Trait Low Costs. (No Clones)")
             with st.spinner("Analyzing strategies..."):
                 res = solve_three_strategies(pool, slots, user_emblems, p_str)
             
             if res:
                 labels = [
-                    "👑 Option 1: BEST BALANCED (AI Choice)",
+                    "👑 Option 1: BEST BALANCED (Smart AI)",
                     "🌍 Option 2: MAX REGIONS (Ryze Max Power)",
-                    "⚔️ Option 3: MAX CLASSES (Team Synergy)"
+                    "🛡️ Option 3: ALTERNATIVE VARIATION"
                 ]
                 
                 for i, data in enumerate(res):
                     if not data: continue
-                    
                     team = data['team']
                     r_l = data['r_list']
                     c_l = data['c_list']
@@ -320,7 +311,6 @@ if run:
                         idx = 2
                         for u in team:
                             role_icon = "🛡️" if u.get('role')=='tank' else ("⚔️" if u.get('role')=='carry' else "❤️")
-                            
                             traits_html = []
                             for t in u['traits']:
                                 if "Targon" in t: traits_html.append(f"<span style='color:#9C27B0'><b>{t}</b></span>")
