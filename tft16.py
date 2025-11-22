@@ -465,11 +465,16 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
             if traits.get("Darkin", 0) >= 1: c_list_fmt.append(f"Darkin({traits['Darkin']})")
             
             for u_trait in UNIQUE_TRAITS:
-                if traits.get(u_trait, 0) >= 1:
-                    if u_trait == "Blacksmith": c_list_fmt.append("Blacksmith")
-                    else:
-                        unit_with_trait = next((u for u in final_team if u_trait in u['traits']), None)
-                            if is_supported: c_list_fmt.append(u_trait)
+            if traits.get(u_trait, 0) >= 1:
+                if u_trait == "Blacksmith": c_score += 1
+                else:
+                    unit_with_trait = next((u for u in final_team if u_trait in u['traits']), None)
+                    if unit_with_trait:
+                        is_supported = False
+                        for other_t in unit_with_trait['traits']:
+                            if other_t in active_regions_set or other_t in active_classes_set: is_supported = True
+                        # ERROR LINE IS AROUND HERE
+                        if is_supported: c_score += 1
 
             candidates.append({
                 "team": final_team,
@@ -745,3 +750,4 @@ if run:
 
 elif not run:
     st.info("👈 Select Level -> Click FIND TEAMS")
+
