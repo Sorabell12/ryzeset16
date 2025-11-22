@@ -549,8 +549,8 @@ if run:
             if res:
                 labels = [
                     "👑 Option 1: BEST BALANCED (AI Choice)",
-                    "🌍 Option 2: MAX REGIONS (Ryze Max Power)",
-                    "🛡️ Option 3: MAX SYNERGY (Trait Count)"
+                    "🌍 Option 2",
+                    "🛡️ Option 3"
                 ]
                 
                 for i, data in enumerate(res):
@@ -603,3 +603,4 @@ if run:
 
 elif not run:
     st.info("👈 Select Level -> Click FIND TEAMS")
+
