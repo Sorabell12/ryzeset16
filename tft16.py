@@ -415,25 +415,41 @@ if run:
         unlock_pool_mixed = [u for u in ALL_UNITS if u['diff'] <= 2]
         
         def render_unlock(sub_tab, u_pool):
-            with sub_tab:
-                with st.spinner("Calculating cheapest 5-Region comps..."):
-                    res = solve_unlock_mission(u_pool, level, user_emblems) 
-                
-                if res:
-                    for i, data in enumerate(res):
-                        expanded = (i==0)
-                        title = f"🎯 Option {i+1}: {data['active_count']} Regions (Cost: {data['cost']}🟡)"
+        with sub_tab:
+            with st.spinner("Calculating cheapest 5-Region comps..."):
+                res = solve_unlock_mission(u_pool, level, user_emblems) 
+            
+            if res:
+                for i, data in enumerate(res):
+                    expanded = (i==0)
+                    title = f"🎯 Option {i+1}: {data['active_count']} Regions (Cost: {data['cost']}🟡)"
+                    
+                    with st.expander(title, expanded=expanded):
+                        st.success(f"**Active:** {', '.join(data['regions'])}")
+                        cols = st.columns(2)
                         
-                        with st.expander(title, expanded=expanded):
-                            st.success(f"**Active:** {', '.join(data['regions'])}")
-                            cols = st.columns(2)
-                            idx = 1
-                            for u in data['team']:
-                                col = cols[(idx-1) % 2]
-                                col.markdown(f"{idx}. **{u['name']}** ({u['cost']}🟡)")
-                                idx += 1
-                else:
-                    st.error("Cannot find 5 regions.")
+                        # Lấy danh sách tên các vùng đất đang kích hoạt để tô màu (VD: "Demacia(3)" -> "Demacia")
+                        active_region_names = [r.split('(')[0] for r in data['regions']]
+
+                        idx = 1
+                        for u in data['team']:
+                            col = cols[(idx-1) % 2]
+                            
+                            # --- LOGIC HIỂN THỊ TRAITS (MỚI THÊM VÀO) ---
+                            traits_html = []
+                            for t in u['traits']:
+                                if t in active_region_names:
+                                    # Tô màu xanh lá cho vùng đất đang kích hoạt (quan trọng)
+                                    traits_html.append(f"<span style='color:#2E7D32'><b>{t}</b></span>")
+                                else:
+                                    # Tô màu xám cho các hệ phụ
+                                    traits_html.append(f"<span style='color:#555'>{t}</span>")
+                            
+                            # Hiển thị tên + traits
+                            col.markdown(f"{idx}. **{u['name']}** ({u['cost']}🟡) : {' '.join(traits_html)}", unsafe_allow_html=True)
+                            idx += 1
+            else:
+                st.error("Cannot find 5 regions.")
         
         render_unlock(sub1, unlock_pool_basic)
         render_unlock(sub2, unlock_pool_mixed)
@@ -504,3 +520,4 @@ if run:
 
 elif not run:
     st.info("👈 Select Level -> Click FIND TEAMS")
+
