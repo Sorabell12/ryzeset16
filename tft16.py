@@ -171,7 +171,7 @@ def solve_unlock_mission(pool, slots, user_emblems):
     region_units.sort(key=lambda x: x['cost'])
     
     # INCREASED POOL SIZE TO 48 (TO INCLUDE 4-COST UNITS LIKE TARIC)
-    search_pool = region_units[:48]
+    search_pool = region_units[:80]
 
     for team in itertools.combinations(search_pool, slots):
         loop_count += 1
@@ -216,7 +216,7 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
     
     raw_pool = region_units + targon + versatile_units + expensive_units
     final_pool = list({v['name']:v for v in raw_pool}.values())
-    final_pool = final_pool[:40]
+    final_pool = final_pool[:80]
 
     limit_max = 1500000
     loop_count = 0
@@ -509,3 +509,4 @@ if run:
 
 elif not run:
     st.info("👈 Select Level -> Click FIND TEAMS")
+
