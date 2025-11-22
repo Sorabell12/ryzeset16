@@ -2,13 +2,15 @@ import streamlit as st
 import itertools
 
 # --- 1. PAGE CONFIG & CSS ---
-st.set_page_config(page_title="TFT Set 16 Optimizer", page_icon="🧠", layout="wide")
+st.set_page_config(page_title="TFT Set 16 Optimizer", page_icon="⚡", layout="wide")
 
 st.markdown("""
     <style>
         .block-container { padding: 1rem 1rem 0rem 1rem; }
         section[data-testid="stSidebar"] .block-container { padding-top: 1rem; }
-        div.stButton > button { width: 100%; background-color: #FF4B4B; color: white; font-weight: bold; border: none; }
+        div.stButton > button {
+            width: 100%; background-color: #FF4B4B; color: white; font-weight: bold; border: none;
+        }
         div.stButton > button:hover { background-color: #FF0000; color: white; }
         .streamlit-expanderHeader { font-weight: bold; font-size: 1.1rem; }
     </style>
@@ -35,12 +37,11 @@ CLASS_DATA = {
 
 GALIO_UNIT = {"name": "Galio", "traits": ["Demacia", "Invoker", "Heroic"], "cost": 5, "diff": 3, "role": "tank"}
 
-# --- UPDATED UNITS WITH ROLES & TRAIT EFFICIENCY ---
 ALL_UNITS = [
-    # 1 COST (Note: Briar updated to tank role for Juggernaut logic)
+    # 1 COST
     {"name": "Anivia", "traits": ["Freljord", "Invoker"], "cost": 1, "diff": 1, "role": "carry"},
     {"name": "Blitzcrank", "traits": ["Zaun", "Juggernaut"], "cost": 1, "diff": 1, "role": "tank"},
-    {"name": "Briar", "traits": ["Noxus", "Slayer", "Juggernaut"], "cost": 1, "diff": 1, "role": "tank"}, 
+    {"name": "Briar", "traits": ["Noxus", "Slayer", "Juggernaut"], "cost": 1, "diff": 1, "role": "tank"},
     {"name": "Caitlyn", "traits": ["Piltover", "Longshot"], "cost": 1, "diff": 1, "role": "carry"},
     {"name": "Illaoi", "traits": ["Bilgewater", "Bruiser"], "cost": 1, "diff": 1, "role": "tank"},
     {"name": "Jarvan IV", "traits": ["Demacia", "Defender"], "cost": 1, "diff": 1, "role": "tank"},
@@ -77,7 +78,7 @@ ALL_UNITS = [
     {"name": "Malzahar", "traits": ["Void", "Disruptor"], "cost": 3, "diff": 1, "role": "carry"},
     {"name": "Milio", "traits": ["Ixtal", "Invoker"], "cost": 3, "diff": 1, "role": "supp"},
     {"name": "Nautilus", "traits": ["Bilgewater", "Juggernaut", "Warden"], "cost": 3, "diff": 1, "role": "tank"},
-    {"name": "Sejuani", "traits": ["Freljord", "Defender"], "cost": 3, "diff": 1, "role": "tank"},
+    {"name": "Sejuani", "traits": ["Freljord", "Defender"], "cost": 3, "diff": 1, "role": "tank"}, 
     {"name": "Vayne", "traits": ["Demacia", "Longshot"], "cost": 3, "diff": 1, "role": "carry"},
     {"name": "Zoe", "traits": ["Targon"], "cost": 3, "diff": 1, "role": "carry"},
     # 4 COST
@@ -93,7 +94,7 @@ ALL_UNITS = [
     {"name": "Taric", "traits": ["Targon"], "cost": 4, "diff": 2, "role": "tank"},
     {"name": "Wukong", "traits": ["Ionia", "Bruiser"], "cost": 4, "diff": 2, "role": "tank"},
     {"name": "Yunara", "traits": ["Ionia", "Quickstriker"], "cost": 4, "diff": 2, "role": "carry"},
-    # 5 COST
+    # 5 COST & SHOP
     {"name": "Annie", "traits": ["Dark Child", "Arcanist"], "cost": 5, "diff": 3, "role": "carry"},
     {"name": "Azir", "traits": ["Shurima", "Emperor", "Disruptor"], "cost": 5, "diff": 3, "role": "carry"},
     {"name": "Fiddlesticks", "traits": ["Harvester", "Vanquisher"], "cost": 5, "diff": 3, "role": "carry"},
@@ -102,13 +103,13 @@ ALL_UNITS = [
     {"name": "Ornn", "traits": ["Blacksmith", "Warden"], "cost": 5, "diff": 3, "role": "tank"},
     {"name": "Shyvana", "traits": ["Dragonborn", "Juggernaut"], "cost": 5, "diff": 3, "role": "tank"},
     {"name": "Zilean", "traits": ["Chronokeeper", "Invoker"], "cost": 5, "diff": 3, "role": "supp"},
+    # 7 COST
+    {"name": "Ryze (Clone)", "traits": ["Rune Mage"], "cost": 7, "diff": 3, "role": "carry"},
+    # UNLOCKABLES
     {"name": "Aatrox", "traits": ["Darkin", "Slayer"], "cost": 5, "diff": 3, "role": "carry"},
     {"name": "Sett", "traits": ["Ionia", "The Boss"], "cost": 5, "diff": 3, "role": "tank"},
     {"name": "Volibear", "traits": ["Freljord", "Bruiser"], "cost": 5, "diff": 3, "role": "tank"},
     {"name": "Xerath", "traits": ["Shurima", "Ascendant"], "cost": 5, "diff": 3, "role": "carry"},
-    # 7 COST
-    {"name": "Ryze (Clone)", "traits": ["Rune Mage"], "cost": 7, "diff": 3, "role": "carry"},
-    # UNLOCKABLES (Only Easy/Medium)
     {"name": "Mel", "traits": ["Noxus", "Disruptor"], "cost": 5, "diff": 3, "role": "carry"},
     {"name": "Bard", "traits": ["Caretaker"], "cost": 2, "diff": 2, "role": "supp"},
     {"name": "Orianna", "traits": ["Piltover", "Invoker"], "cost": 2, "diff": 2, "role": "supp"},
@@ -132,47 +133,39 @@ ALL_UNITS = [
     {"name": "Yone", "traits": ["Ionia", "Slayer"], "cost": 1, "diff": 1, "role": "carry"},
 ]
 
-# --- SMART ALGORITHM: VALUE OVER COST ---
-def solve_comp_smart(pool, slots, user_emblems, prioritize_strength=False):
+# --- ALGORITHM: 3 STRATEGIES ---
+def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False):
+    # 1. Filter Pool
     region_units = [u for u in pool if any(t in REGION_DATA for t in u['traits'])]
     targon = [u for u in pool if "Targon" in u['traits']]
     
-    # Filter High Cost but ALSO High Efficiency (3 Traits or Tank)
-    # This fixes the "Briar vs Ambessa" issue. Briar (3 traits) is kept.
-    
     if prioritize_strength:
-        # SMART EXODIA POOL SELECTION
-        # 1. Include all 5 & 7 Costs
-        exodia_units = [u for u in pool if u['cost'] >= 5]
+        # EXODIA POOL REVISED:
+        # 1. High Cost (4, 5, 7)
+        high_cost = [u for u in pool if u['cost'] >= 4]
         
-        # 2. Include Targon (Always good for Ryze)
+        # 2. Mid Cost (3) - IMPORTANT for Sejuani/Taric etc.
+        mid_cost = [u for u in pool if u['cost'] == 3]
         
-        # 3. Include "Efficiency Monsters" (Units with 3+ Traits, regardless of cost)
-        # Example: Briar (Noxus/Slayer/Juggernaut), Swain, Neeko
-        efficient_units = [u for u in region_units if len(u['traits']) >= 3]
+        # 3. Low Cost High Efficiency (3 Traits) - IMPORTANT for Vi/Briar/Neeko
+        efficient_low = [u for u in region_units if u['cost'] < 3 and len(u['traits']) >= 3]
         
-        # 4. Include High Cost 4-costs
-        high_cost_4 = [u for u in pool if u['cost'] == 4]
-        
-        # Combine unique units
-        raw_pool = exodia_units + targon + efficient_units + high_cost_4
-        # Remove duplicates based on name
+        # Combine & Unique
+        raw_pool = high_cost + mid_cost + efficient_low + targon
         final_pool = list({v['name']:v for v in raw_pool}.values())
         
-        # Limit pool size for performance (Keep max 28 units)
-        # Sort by: Cost + (1 if 3 traits) + (0.5 if Tank)
-        # This ensures Briar stays in the pool even if we cut
-        final_pool.sort(key=lambda x: x['cost'] + (1.5 if len(x['traits'])>=3 else 0), reverse=True)
-        final_pool = final_pool[:28]
-        
+        # Limit pool size for performance
+        # Sort by: Cost + (1 if 3 traits)
+        final_pool.sort(key=lambda x: x['cost'] + (1 if len(x['traits'])>=3 else 0), reverse=True)
+        final_pool = final_pool[:32] # Increased slightly to allow more variation
     else:
-        # Standard Logic
         connectors = [u for u in region_units if len([t for t in u['traits'] if t in REGION_DATA]) >= 2]
         others = [u for u in region_units if u not in connectors]
         final_pool = connectors + targon + others[:16]
 
-    limit_max = 2000000
+    limit_max = 1500000
     loop_count = 0
+    
     candidates = []
 
     for team in itertools.combinations(final_pool, slots):
@@ -181,11 +174,9 @@ def solve_comp_smart(pool, slots, user_emblems, prioritize_strength=False):
         if len(set([u['name'] for u in team])) < len(team): continue
 
         traits = {}
-        total_cost = 0
         tank_count = 0
         
         for u in team:
-            total_cost += u.get('cost', 1)
             if u.get('role') == 'tank': tank_count += 1
             for t in u['traits']:
                 traits[t] = traits.get(t, 0) + 1
@@ -210,66 +201,68 @@ def solve_comp_smart(pool, slots, user_emblems, prioritize_strength=False):
             if traits.get(cl, 0) >= thresholds[0]: c_score += 1
             elif cl == "Heroic" and traits.get(cl, 0) >= 1: c_score += 1
 
-        # Penalties & Bonuses
+        # Penalties
         balance_penalty = 0
         if tank_count < 2: balance_penalty = -5 
         elif tank_count < 3 and slots >= 8: balance_penalty = -2
         
-        galio_bonus = 5 if has_galio else 0
-        final_r_score = r_score + galio_bonus
+        final_r = r_score + (5 if has_galio else 0)
         
-        # --- NEW SCORING: SYNERGY > COST ---
-        if prioritize_strength:
-            # Prioritize: Regions -> Classes -> Cost
-            # This ensures Briar (activates Juggernaut -> +1 Class) beats Ambessa (No Class -> +0)
-            sort_key = (final_r_score + balance_penalty, c_score, total_cost)
-        else:
-            sort_key = (final_r_score + balance_penalty, c_score, total_cost)
-            
-        r_list = [f"{r}({traits[r]})" for r in REGION_DATA if traits.get(r,0) >= REGION_DATA[r]['thresholds'][0]]
-        c_list = [f"{c}({traits[c]})" for c in CLASS_DATA if traits.get(c,0) >= CLASS_DATA[c][0] or (c=="Heroic" and traits.get(c,0)>=1)]
+        # Store Metrics
+        r_list_fmt = [f"{r}({traits[r]})" for r in REGION_DATA if traits.get(r,0) >= REGION_DATA[r]['thresholds'][0]]
+        c_list_fmt = [f"{c}({traits[c]})" for c in CLASS_DATA if traits.get(c,0) >= CLASS_DATA[c][0] or (c=="Heroic" and traits.get(c,0)>=1)]
         
-        candidates.append((sort_key, (final_team, r_list, c_list, has_galio, final_r_score, tank_count)))
+        # Combined Smart Score (Weighted Average)
+        # Weight Regions slightly higher than Classes
+        smart_score = (final_r * 1.5) + c_score + balance_penalty
+        
+        candidates.append({
+            "team": final_team,
+            "r_score": final_r,
+            "c_score": c_score,
+            "smart_score": smart_score,
+            "r_list": r_list_fmt,
+            "c_list": c_list_fmt,
+            "galio": has_galio,
+            "tanks": tank_count
+        })
 
-    # Diversity Filter
-    candidates.sort(key=lambda x: x[0], reverse=True)
-    final_top_3 = []
-    if candidates:
-        opt1 = candidates[0]
-        final_top_3.append(opt1)
-        best_r = opt1[1][4]
-        
-        opt2 = None
+    # --- STRATEGY SELECTION ---
+    if not candidates: return []
+    
+    # 1. Best Balanced (Smart Score)
+    candidates.sort(key=lambda x: x['smart_score'], reverse=True)
+    opt1 = candidates[0]
+    
+    # 2. Max Regions (Focus purely on R_SCORE)
+    candidates.sort(key=lambda x: (x['r_score'], x['smart_score']), reverse=True)
+    opt2 = candidates[0]
+    if opt2['team'] == opt1['team']:
         for cand in candidates:
-            if cand[1][4] < best_r or abs(cand[1][5] - opt1[1][5]) >= 2:
+            if cand['team'] != opt1['team']:
                 opt2 = cand
                 break
-        if not opt2 and len(candidates)>1: opt2 = candidates[1]
-        
-        if opt2:
-            final_top_3.append(opt2)
-            opt3 = None
-            for cand in candidates:
-                if cand != opt1 and cand != opt2 and (cand[1][4] != opt2[1][4] or cand[0] < opt2[0]):
-                    opt3 = cand
-                    break
-            if not opt3:
-                for cand in candidates:
-                    if cand != opt1 and cand != opt2:
-                        opt3 = cand
-                        break
-            if opt3: final_top_3.append(opt3)
-            
-    return final_top_3
+    
+    # 3. Max Classes (Focus purely on C_SCORE)
+    candidates.sort(key=lambda x: (x['c_score'], x['smart_score']), reverse=True)
+    opt3 = candidates[0]
+    if opt3['team'] == opt1['team'] or opt3['team'] == opt2['team']:
+        for cand in candidates:
+            if cand['team'] != opt1['team'] and cand['team'] != opt2['team']:
+                opt3 = cand
+                break
+    
+    return [opt1, opt2, opt3]
 
 # --- UI ---
 st.title("🧙‍♂️ TFT Set 16: Ryze AI Tool")
+st.markdown("**Strategic Diversity:** Balance vs Regions vs Classes.")
 
 with st.sidebar:
     st.header("⚙️ Config")
     level = st.selectbox("Level:", [8, 9, 10, 11])
     st.markdown("<br>", unsafe_allow_html=True)
-    run = st.button("🚀 FIND SMART TEAMS", type="primary")
+    run = st.button("🚀 FIND TEAMS", type="primary")
     st.markdown("---")
     with st.expander("🧩 Region Emblems", expanded=False):
         user_emblems = {}
@@ -294,21 +287,27 @@ if run:
     
     def render(tab, pool, p_str=False):
         with tab:
-            if p_str: st.caption("Prioritizes Synergy Efficiency & High Cost Units.")
-            with st.spinner("Analyzing efficient combinations..."):
-                res = solve_comp_smart(pool, slots, user_emblems, p_str)
+            if p_str: st.caption("Pool: 3+ Cost & 3-Trait Low Costs.")
+            with st.spinner("Analyzing strategies..."):
+                res = solve_three_strategies(pool, slots, user_emblems, p_str)
             
             if res:
-                for rank, (score, comp) in enumerate(res):
-                    team, r_l, c_l, galio, r_val, tanks = comp
-                    expanded = (rank==0)
+                labels = [
+                    "👑 Option 1: BEST BALANCED (AI Choice)",
+                    "🌍 Option 2: MAX REGIONS (Ryze Max Power)",
+                    "⚔️ Option 3: MAX CLASSES (Team Synergy)"
+                ]
+                
+                for i, data in enumerate(res):
+                    if not data: continue
                     
-                    if rank == 0: lbl = "👑 BEST VALUE"
-                    elif rank == 1: lbl = "⚔️ VARIATION"
-                    else: lbl = "🛡️ ALTERNATIVE"
+                    team = data['team']
+                    r_l = data['r_list']
+                    c_l = data['c_list']
                     
-                    title = f"{lbl}: {len(r_l)} Regions / {len(c_l)} Classes"
-                    if galio: title += " (GALIO)"
+                    expanded = (i==0)
+                    title = f"{labels[i]}: {len(r_l)} Regions / {len(c_l)} Classes"
+                    if data['galio']: title += " (GALIO)"
                     
                     with st.expander(title, expanded=expanded):
                         st.success(f"Regions: {', '.join(r_l)}")
@@ -329,9 +328,7 @@ if run:
                                 elif any(t in x for x in c_l): traits_html.append(f"<span style='color:#E65100'><b>{t}</b></span>")
                                 else: traits_html.append(f"<span style='color:#555'>{t}</span>")
 
-                            if u['name'] == "Galio": name = "✨ GALIO (FREE)"
-                            else: name = u['name']
-                            
+                            name = "✨ GALIO (FREE)" if u['name'] == "Galio" else u['name']
                             txt = f"{idx}. **{name}** {role_icon} : {' '.join(traits_html)}"
                             
                             if idx-2 < len(team)/2: cr.markdown(txt, unsafe_allow_html=True)
@@ -345,6 +342,4 @@ if run:
     render(tab3, ALL_UNITS, True)
 
 elif not run:
-    st.info("👈 Select Level -> Click FIND SMART TEAMS")
-
-
+    st.info("👈 Select Level -> Click FIND TEAMS")
