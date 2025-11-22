@@ -192,7 +192,7 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
         
         has_galio = False
         final_team = list(team)
-        if traits.get("Demacia", 0) >= 1:
+        if traits.get("Demacia", 0) >= 6:
             has_galio = True
             final_team.append(GALIO_UNIT)
             tank_count += 1
@@ -427,3 +427,4 @@ if run:
 
 elif not run:
     st.info("👈 Select Level -> Click FIND TEAMS")
+
