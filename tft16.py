@@ -18,8 +18,8 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- 2. LANGUAGE DICTIONARY ---
-TRANS = {
+# --- GLOBAL LANGUAGE DICTIONARY (FIXED POSITION) ---
+T = {
     "Tiếng Việt": {
         "title": "🧙‍♂️ TFT Mùa 16: Tool Ryze AI",
         "subtitle": "**Đa dạng chiến thuật:** Tối ưu hóa toàn diện.",
@@ -77,6 +77,7 @@ TRANS = {
         ]
     }
 }
+
 
 # --- DATASETS ---
 REGION_DATA = {
@@ -166,7 +167,7 @@ STANDARD_UNITS = [
     {"name": "Miss Fortune", "traits": ["Bilgewater", "Gunslinger"], "cost": 4, "diff": 2, "role": "carry"},
     {"name": "Seraphine", "traits": ["Piltover", "Disruptor"], "cost": 4, "diff": 2, "role": "supp"},
     {"name": "Swain", "traits": ["Noxus", "Arcanist", "Juggernaut"], "cost": 4, "diff": 2, "role": "tank"},
-    {"name": "Wukong", "traits": ["Ionia", "Bruiser"], "cost": 4, "diff": 2, "role": "tank"},
+    {"name": "Wukong", "traits": ["Ionia", "Bruiser"], "cost": 4, "diff": 2, "role": "carry"},
     {"name": "Yunara", "traits": ["Ionia", "Quickstriker"], "cost": 4, "diff": 2, "role": "carry"},
 
     # 5 COST
@@ -434,6 +435,39 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
             for u_trait in UNIQUE_TRAITS:
                 if traits.get(u_trait, 0) >= 1:
                     if u_trait == "Blacksmith": c_score += 1
+                    else:
+                        unit_with_trait = next((u for u in final_team if u_trait in u['traits']), None)
+                        if unit_with_trait:
+                            is_supported = False
+                            for other_t in unit_with_trait['traits']:
+                                if other_t in active_regions_set or other_t in active_classes_set: is_supported = True
+                            if is_supported: c_score += 1 
+
+            balance_penalty = 0
+            if tank_count < 2: balance_penalty = -10 
+            
+            targon_bonus = 0
+            if "Taric" in names: targon_bonus += 20
+            annie_penalty = -12 if "Annie" in names else 0
+            
+            final_r = r_score + (5 if has_galio else 0)
+            
+            strength_score = 0
+            if prioritize_strength:
+                strength_score = team_total_cost * 2.0 
+
+            smart_score = (final_r * 25.0) + \
+                          (c_score * 12.0) + \
+                          strength_score + \
+                          balance_penalty + unused_emblem_penalty + targon_bonus + annie_penalty + useless_unit_penalty
+            
+            r_list_fmt = [f"{r}({traits[r]})" for r in REGION_DATA if traits.get(r,0) >= REGION_DATA[r]['thresholds'][0]]
+            c_list_fmt = [f"{c}({traits[c]})" for c in CLASS_DATA if traits.get(c,0) >= CLASS_DATA[c][0] and c not in UNIQUE_TRAITS]
+            if traits.get("Darkin", 0) >= 1: c_list_fmt.append(f"Darkin({traits['Darkin']})")
+            
+            for u_trait in UNIQUE_TRAITS:
+                if traits.get(u_trait, 0) >= 1:
+                    if u_trait == "Blacksmith": c_list_fmt.append("Blacksmith")
                     else:
                         unit_with_trait = next((u for u in final_team if u_trait in u['traits']), None)
                         if unit_with_trait:
