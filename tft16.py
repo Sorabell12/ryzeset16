@@ -43,7 +43,6 @@ CLASS_DATA = {
 
 UNIQUE_TRAITS = list(CLASS_DATA.keys())[-22:]
 
-# GOD TIER (For Exodia)
 GOD_TIER = ["Aatrox", "Bel'Veth", "Sion", "Heimerdinger", "Ahri", "Senna", "K'Sante", "Gangplank"]
 
 GALIO_UNIT = {"name": "Galio", "traits": ["Demacia", "Invoker", "Heroic"], "cost": 5, "diff": 3, "role": "tank"}
@@ -136,7 +135,7 @@ ALL_UNITS = [
 
     # 7 COST
     
-    # LOWER UNLOCKABLES (Common)
+    # LOWER UNLOCKABLES
     {"name": "Bard", "traits": ["Caretaker"], "cost": 2, "diff": 2, "role": "supp"},
     {"name": "Orianna", "traits": ["Piltover", "Invoker"], "cost": 2, "diff": 2, "role": "supp"},
     {"name": "Poppy", "traits": ["Demacia", "Yordle", "Juggernaut"], "cost": 1, "diff": 1, "role": "tank"},
@@ -159,14 +158,19 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
         high_cost = [u for u in pool if u['cost'] >= 4]
         mid_cost = [u for u in pool if u['cost'] == 3]
         efficient_low = [u for u in region_units if u['cost'] < 3 and len(u['traits']) >= 3]
+        
         raw_pool = high_cost + mid_cost + efficient_low + targon
         final_pool = list({v['name']:v for v in raw_pool}.values())
         final_pool.sort(key=lambda x: 100 if x['name'] == "Taric" else (x['cost'] + (1 if len(x['traits'])>=3 else 0)), reverse=True)
         final_pool = final_pool[:35] 
     else:
-        connectors = [u for u in region_units if len([t for t in u['traits'] if t in REGION_DATA]) >= 2]
-        others = [u for u in region_units if u not in connectors]
-        final_pool = connectors + targon + others[:16]
+        # EXPANDED LOW COST POOL: COST 1, 2, 3
+        # Prioritize Connectors (2+ traits) but keep all cheap units
+        low_cost_all = [u for u in pool if u['cost'] <= 3]
+        final_pool = low_cost_all 
+        # Sort by Efficiency (Trait Count / Cost) roughly
+        final_pool.sort(key=lambda x: len(x['traits']), reverse=True)
+        final_pool = final_pool[:25] # Increase pool size for diversity
 
     limit_max = 1500000
     loop_count = 0
@@ -202,22 +206,19 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
         unused_emblem_penalty = 0
         active_regions_set = set()
         
-        # REGION SCORING & ANTI-VERTICAL LOGIC
+        # REGION SCORING & ANTI-VERTICAL
         for r, data in REGION_DATA.items():
             count = traits.get(r, 0)
-            min_threshold = data['thresholds'][0]
-            
-            if count >= min_threshold: 
+            if count >= data['thresholds'][0]: 
                 r_score += 1
                 active_regions_set.add(r)
                 
-                # PENALTY FOR GOING VERTICAL (Waste of slots)
-                # If we have 4 units but threshold is 3 -> 1 wasted unit.
-                # If we have 5 units (2nd threshold) -> Still a waste for Ryze's passive (Region count)
-                # Calculate how many units exceed the MINIMUM required.
-                wasted = count - min_threshold
-                if wasted > 0:
-                    unused_emblem_penalty -= (wasted * 30) # Heavy penalty to force horizontal spread
+                current_tier_threshold = 0
+                for t in data['thresholds']:
+                    if count >= t: current_tier_threshold = t
+                    else: break
+                wasted = count - current_tier_threshold
+                if wasted > 0: unused_emblem_penalty -= (wasted * 10) # Higher penalty for sprawl
 
             elif user_emblems.get(r, 0) > 0:
                 unused_emblem_penalty -= 15
@@ -243,12 +244,11 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
                     is_active_region = True
                     break
             
-            # FORCE PENALTY: Unit has Region but Region INACTIVE -> KILL
+            # STRICT: If unit has a Region trait, it MUST be active.
             has_any_region_trait = any(t in REGION_DATA for t in u['traits'])
             if has_any_region_trait and not is_active_region:
-                useless_unit_penalty -= 50 
+                useless_unit_penalty -= 50 # Kill Jhin/Blitz if traits off
 
-        # Unique Logic
         for u_trait in UNIQUE_TRAITS:
             if traits.get(u_trait, 0) >= 1:
                 unit_with_trait = next((u for u in final_team if u_trait in u['traits']), None)
@@ -267,8 +267,8 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
         elif tank_count < 3 and slots >= 8: balance_penalty = -2
         
         targon_bonus = 0
-        if traits.get("Targon", 0) == 1: targon_bonus = 50 # Massive bonus for perfect 1 Targon
-        elif traits.get("Targon", 0) > 1: targon_bonus = -30 # Penalty for >1
+        if traits.get("Targon", 0) == 1: targon_bonus = 50
+        elif traits.get("Targon", 0) > 1: targon_bonus = -30
         if "Taric" in names: targon_bonus += 20
         
         god_bonus = 0
@@ -279,8 +279,9 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
         
         final_r = r_score + (5 if has_galio else 0)
         
-        # Weight R_SCORE massively (x50) to ensure Max Unique Regions
-        smart_score = (final_r * 50.0) + c_score + balance_penalty + unused_emblem_penalty + targon_bonus + annie_penalty + useless_unit_penalty + god_bonus
+        # SMART SCORE
+        # Region Weight High to force substitutions like Jhin -> Ahri
+        smart_score = (final_r * 25.0) + (c_score * 5.0) + balance_penalty + unused_emblem_penalty + targon_bonus + annie_penalty + useless_unit_penalty + god_bonus
         
         r_list_fmt = [f"{r}({traits[r]})" for r in REGION_DATA if traits.get(r,0) >= REGION_DATA[r]['thresholds'][0]]
         c_list_fmt = [f"{c}({traits[c]})" for c in CLASS_DATA if traits.get(c,0) >= CLASS_DATA[c][0] and c not in UNIQUE_TRAITS]
@@ -322,7 +323,7 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
                 opt2 = cand
                 break
     
-    candidates.sort(key=lambda x: x['smart_score'], reverse=True)
+    candidates.sort(key=lambda x: (x['c_score'], x['smart_score']), reverse=True)
     opt3 = candidates[0]
     for cand in candidates:
         if cand['team'] != opt1['team'] and cand['team'] != opt2['team']:
@@ -333,7 +334,7 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
 
 # --- UI ---
 st.title("🧙‍♂️ TFT Set 16: Ryze AI Tool")
-st.markdown("**Strategic Diversity:** Anti-Vertical (Max Width) & Strict Targon.")
+st.markdown("**Strategic Diversity:** Smart Economy (1-3 Cost) & No Deadweights.")
 
 with st.sidebar:
     st.header("⚙️ Config")
@@ -357,14 +358,16 @@ with st.sidebar:
 
 if run:
     slots = level - 1
-    tab1, tab2, tab3 = st.tabs(["Low Cost", "Standard", "EXODIA (Smart Value)"])
+    tab1, tab2, tab3 = st.tabs(["Low Cost (Eco)", "Standard", "EXODIA (Smart Value)"])
     
-    pool_easy = [u for u in ALL_UNITS if u['diff'] == 1]
+    pool_easy = [u for u in ALL_UNITS if u['cost'] <= 3] # Expanded Pool to 3-costs
     pool_mid = [u for u in ALL_UNITS if u['diff'] <= 2]
     
     def render(tab, pool, p_str=False):
         with tab:
-            if p_str: st.caption("Prioritizes **Width (More Regions)** over Depth.")
+            if p_str: st.caption("Prioritizes **God Tier**, Active Regions & No Wasted Slots.")
+            elif pool == pool_easy: st.caption("Uses Cost 1, 2, 3 units (Smart Eco).")
+            
             with st.spinner("Analyzing strategies..."):
                 res = solve_three_strategies(pool, slots, user_emblems, p_str)
             
@@ -372,7 +375,7 @@ if run:
                 labels = [
                     "👑 Option 1: BEST BALANCED (AI Choice)",
                     "🌍 Option 2: MAX REGIONS (Ryze Max Power)",
-                    "🛡️ Option 3: ALTERNATIVE VARIATION"
+                    "🛡️ Option 3: MAX SYNERGY (Trait Count)"
                 ]
                 
                 for i, data in enumerate(res):
