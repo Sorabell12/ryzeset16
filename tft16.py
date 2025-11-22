@@ -148,18 +148,17 @@ ALL_UNITS = [
     {"name": "Ziggs", "traits": ["Zaun", "Yordle", "Longshot"], "cost": 5, "diff": 3, "role": "carry"},
 ]
 
-# --- UNLOCK ALGORITHM (FIXED) ---
+# --- UNLOCK ALGORITHM (SMART SEARCH) ---
 def solve_unlock_mission(pool, slots, user_emblems):
     candidates = []
     limit_max = 2000000 
     loop_count = 0
 
-    # Filter pool for Unlock mission (Focus on Units with Regions)
+    # Filter pool for Unlock mission
     region_units = [u for u in pool if any(t in REGION_DATA for t in u['traits'])]
-    # Prefer cheaper units for easier unlock
     region_units.sort(key=lambda x: x['cost'])
     
-    # Expanded search pool to include higher cost units (was 20, now 35)
+    # Expanded search pool (35 units) to catch necessary 3-4 cost units
     search_pool = region_units[:35]
 
     for team in itertools.combinations(search_pool, slots):
@@ -184,7 +183,6 @@ def solve_unlock_mission(pool, slots, user_emblems):
                 active_regions += 1
                 active_list.append(f"{r}({traits[r]})")
         
-        # Threshold for Unlock is 5 Regions
         if active_regions >= 5:
             candidates.append({
                 "team": list(team),
@@ -192,34 +190,30 @@ def solve_unlock_mission(pool, slots, user_emblems):
                 "cost": total_cost,
                 "regions": active_list
             })
-            # Early exit optimization
             if len(candidates) >= 5 and total_cost < 30: break
     
-    # Sort by: Max Regions DESC, then Min Cost ASC
     candidates.sort(key=lambda x: (-x['active_count'], x['cost']))
     return candidates[:3]
 
-# --- MAIN ALGORITHM (FIXED LOGIC FOR STRENGTH) ---
+# --- MAIN ALGORITHM (DYNAMIC BALANCED LOGIC) ---
 def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False):
+    # 1. CREATE SMART POOL
+    # Base pool: units with region traits
     region_units = [u for u in pool if any(t in REGION_DATA for t in u['traits'])]
     targon = [u for u in pool if "Targon" in u['traits']]
     
-    if prioritize_strength:
-        high_cost = [u for u in pool if u['cost'] >= 4]
-        mid_cost = [u for u in pool if u['cost'] == 3]
-        efficient_low = [u for u in region_units if u['cost'] < 3 and len(u['traits']) >= 3]
-        
-        raw_pool = high_cost + mid_cost + efficient_low + targon
-        final_pool = list({v['name']:v for v in raw_pool}.values())
-        # Sort by Taric > Cost > Efficiency
-        final_pool.sort(key=lambda x: 100 if x['name'] == "Taric" else (x['cost'] * 2 + (1 if len(x['traits'])>=3 else 0)), reverse=True)
-        # Increased pool size to ensure 4-costs like Braum are included
-        final_pool = final_pool[:60] 
-    else:
-        low_cost_all = [u for u in pool if u['cost'] <= 3] 
-        final_pool = low_cost_all 
-        final_pool.sort(key=lambda x: len(x['traits']), reverse=True)
-        final_pool = final_pool[:28] 
+    # Top versatile units (most traits) to allow flexible connections
+    versatile_units = sorted(pool, key=lambda x: len(x['traits']), reverse=True)[:15]
+    
+    # Expensive units (Cost 3+) to ensure we have strong tanks/carries available
+    expensive_units = [u for u in pool if u['cost'] >= 3]
+    
+    # Combine and Deduplicate
+    raw_pool = region_units + targon + versatile_units + expensive_units
+    final_pool = list({v['name']:v for v in raw_pool}.values())
+    
+    # Limit to 40 to keep calculation time reasonable while including key units
+    final_pool = final_pool[:40]
 
     limit_max = 1500000
     loop_count = 0
@@ -232,11 +226,9 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
 
         traits = {}
         tank_count = 0
+        team_total_cost = 0 
         names = [u['name'] for u in team]
         
-        # Calculate Team Cost for Strength Tie-breaking
-        team_total_cost = 0
-
         for u in team:
             team_total_cost += u.get('cost', 1)
             if u.get('role') == 'tank': tank_count += 1
@@ -255,23 +247,22 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
             tank_count += 1
             for t in GALIO_UNIT['traits']: traits[t] = traits.get(t, 0) + 1
         
+        # --- SCORING ---
         r_score = 0
-        unused_emblem_penalty = 0
         active_regions_set = set()
+        unused_emblem_penalty = 0
         
-        # REGION SCORING
         for r, data in REGION_DATA.items():
             count = traits.get(r, 0)
             if count >= data['thresholds'][0]: 
                 r_score += 1
                 active_regions_set.add(r)
-                # Sprawl Penalty
+                # Penalty for wasted trait points (e.g., 4/3 Freljord)
                 current_tier_threshold = 0
                 for t in data['thresholds']:
                     if count >= t: current_tier_threshold = t
                     else: break
-                wasted = count - current_tier_threshold
-                if wasted > 0: unused_emblem_penalty -= (wasted * 10)
+                if count > current_tier_threshold: unused_emblem_penalty -= 5
             elif user_emblems.get(r, 0) > 0:
                 unused_emblem_penalty -= 15
         
@@ -282,62 +273,64 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
                 c_score += 1
                 active_classes_set.add(cl)
         
-        # DEADWEIGHT CHECK
+        # Deadweight Penalty
         useless_unit_penalty = 0
-        
-        # 1. TARGON RULE
+        for u in final_team:
+            if u['name'] in ["Ryze", "Galio", "Taric", "Ornn"]: continue
+            
+            is_contributing = False
+            for t in u['traits']:
+                if t in active_regions_set or t in active_classes_set:
+                    is_contributing = True
+                    break
+            
+            if not is_contributing:
+                # Heavy penalty for cheap useless units
+                if u['cost'] <= 2: useless_unit_penalty -= 30
+                # Lighter penalty for expensive units (raw stats still useful)
+                else: useless_unit_penalty -= 10
+
         targon_c = traits.get("Targon", 0)
         if targon_c == 1: useless_unit_penalty += 50
         elif targon_c > 1: useless_unit_penalty -= 20
         elif targon_c == 0: useless_unit_penalty -= 100 
-        
-        for u in final_team:
-            if u['name'] in ["Ryze", "Galio", "Taric", "Ornn"]: continue
-            if "Targon" in u['traits']: continue
-            
-            is_active_region = False
-            for t in u['traits']:
-                if t in active_regions_set:
-                    is_active_region = True
-                    break
-            
-            has_any_region_trait = any(t in REGION_DATA for t in u['traits'])
-            if has_any_region_trait and not is_active_region:
-                useless_unit_penalty -= 50 
 
-        # Unique Logic
         for u_trait in UNIQUE_TRAITS:
             if traits.get(u_trait, 0) >= 1:
-                unit_with_trait = next((u for u in final_team if u_trait in u['traits']), None)
-                if unit_with_trait:
-                    if u_trait == "Blacksmith": c_score += 1
-                    else:
+                if u_trait == "Blacksmith": c_score += 1
+                else:
+                    unit_with_trait = next((u for u in final_team if u_trait in u['traits']), None)
+                    if unit_with_trait:
                         is_supported = False
                         for other_t in unit_with_trait['traits']:
-                            if other_t in active_regions_set: is_supported = True
-                            if other_t in active_classes_set: is_supported = True
+                            if other_t in active_regions_set or other_t in active_classes_set: 
+                                is_supported = True
                         if is_supported: c_score += 1
 
         balance_penalty = 0
-        if tank_count < 2: balance_penalty = -5 
-        elif tank_count < 3 and slots >= 8: balance_penalty = -2
+        if tank_count < 2: balance_penalty = -10 
         
         targon_bonus = 0
         if "Taric" in names: targon_bonus += 20
-        
         annie_penalty = -12 if "Annie" in names else 0
         
         final_r = r_score + (5 if has_galio else 0)
         
-        # SMART SCORE UPDATE: Added Cost Bonus to break ties for better units (Sejuani > Anivia)
-        cost_bonus = 0
+        # --- DYNAMIC TRADEOFF CALCULATION ---
+        # Logic: If traits are equal, Gold Value wins (1.5 pts/gold).
+        # Logic: If Traits are unequal, Trait Value wins (12 pts/class).
+        strength_score = 0
         if prioritize_strength:
-            cost_bonus = team_total_cost * 0.5
+            strength_score = team_total_cost * 1.5
 
-        smart_score = (final_r * 25.0) + (c_score * 5.0) + balance_penalty + unused_emblem_penalty + targon_bonus + annie_penalty + useless_unit_penalty + cost_bonus
+        smart_score = (final_r * 25.0) + \
+                      (c_score * 12.0) + \
+                      strength_score + \
+                      balance_penalty + unused_emblem_penalty + targon_bonus + annie_penalty + useless_unit_penalty
         
         r_list_fmt = [f"{r}({traits[r]})" for r in REGION_DATA if traits.get(r,0) >= REGION_DATA[r]['thresholds'][0]]
         c_list_fmt = [f"{c}({traits[c]})" for c in CLASS_DATA if traits.get(c,0) >= CLASS_DATA[c][0] and c not in UNIQUE_TRAITS]
+        if traits.get("Darkin", 0) >= 1: c_list_fmt.append(f"Darkin({traits['Darkin']})")
         
         for u_trait in UNIQUE_TRAITS:
             if traits.get(u_trait, 0) >= 1:
@@ -349,8 +342,6 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
                         for other_t in unit_with_trait['traits']:
                             if other_t in active_regions_set or other_t in active_classes_set: is_supported = True
                         if is_supported: c_list_fmt.append(u_trait)
-        
-        if traits.get("Darkin", 0) >= 1: c_list_fmt.append(f"Darkin({traits['Darkin']})")
 
         candidates.append({
             "team": final_team,
@@ -524,4 +515,3 @@ if run:
 
 elif not run:
     st.info("👈 Select Level -> Click FIND TEAMS")
-
