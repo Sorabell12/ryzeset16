@@ -18,6 +18,54 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+# --- 2. LANGUAGE DICTIONARY (UPDATED FOR BMC) ---
+TRANS = {
+    "Tiếng Việt": {
+        "title": "🧙‍♂️ TFT Mùa 16: Tool Ryze AI",
+        "subtitle": "**Đa dạng chiến thuật:** Tối ưu hóa toàn diện.",
+        "config": "⚙️ Cấu hình",
+        "level": "Cấp độ (Level):",
+        "btn_find": "🚀 TÌM ĐỘI HÌNH",
+        "emb_region": "🌍 Ấn Vùng Đất (Region Emblems)",
+        "emb_class": "🛡️ Ấn Tộc/Hệ (Class Emblems)",
+        "donate_title": "### ☕ Ủng hộ Dev",
+        "donate_btn": "☕ Buy Me a Coffee", 
+        "tabs": ["Giá Rẻ (Eco)", "Tiêu Chuẩn (Standard)", "EXODIA (Tối Thượng)", "🔓 MỞ KHÓA RYZE"],
+        "mission_info": "🏆 **Nhiệm vụ:** Kích hoạt 5 Vùng Đất để mở khóa Ryze.",
+        "tag_basic": "🟢 **SHOP CƠ BẢN (CÓ SẴN)**",
+        "tag_unlock": "🟠 **CẦN MỞ KHÓA ({})**",
+        "err_unlock": "Không tìm thấy cách kích 5 vùng với số slot hiện tại.",
+        "err_combat": "Không tìm thấy đội hình phù hợp.",
+        "labels": [
+            "👑 Lựa chọn 1: CÂN BẰNG NHẤT (AI Khuyên dùng)",
+            "🌍 Lựa chọn 2: TỐI ĐA VÙNG ĐẤT (Ryze Max Ping)",
+            "🛡️ Lựa chọn 3: TỐI ĐA TỘC HỆ (Kích nhiều hệ nhất)"
+        ]
+    },
+    "English": {
+        "title": "🧙‍♂️ TFT Set 16: Ryze AI Tool",
+        "subtitle": "**Strategic Diversity:** Full Optimization.",
+        "config": "⚙️ Config",
+        "level": "Level:",
+        "btn_find": "🚀 FIND TEAMS",
+        "emb_region": "🌍 Region Emblems",
+        "emb_class": "🛡️ Class/Trait Emblems",
+        "donate_title": "### ☕ Support Dev",
+        "donate_btn": "☕ Buy Me a Coffee",
+        "tabs": ["Low Cost (Eco)", "Standard", "EXODIA", "🔓 UNLOCK RYZE"],
+        "mission_info": "🏆 **Mission:** Activate 5 Regions to Unlock Ryze.",
+        "tag_basic": "🟢 **BASIC SHOP (AVAILABLE)**",
+        "tag_unlock": "🟠 **REQUIRES {} UNLOCK(S)**",
+        "err_unlock": "Cannot find 5 regions with current slots.",
+        "err_combat": "No valid team found.",
+        "labels": [
+            "👑 Option 1: BEST BALANCED (AI Choice)",
+            "🌍 Option 2: MAX REGIONS (Ryze Max Power)",
+            "🛡️ Option 3: MAX SYNERGY (Trait Count)"
+        ]
+    }
+}
+
 # --- DATASETS ---
 REGION_DATA = {
     "Bilgewater":   {"thresholds": [3, 5, 7, 10]}, "Demacia": {"thresholds": [3, 5, 7, 11]},
@@ -47,7 +95,7 @@ UNIQUE_TRAITS = list(CLASS_DATA.keys())[-22:]
 
 GALIO_UNIT = {"name": "Galio", "traits": ["Demacia", "Invoker", "Heroic"], "cost": 5, "diff": 3, "role": "tank"}
 
-# --- UNIT LISTS (FINAL CORRECTED DATA) ---
+# --- UNIT LISTS ---
 STANDARD_UNITS = [
     # 1 COST
     {"name": "Anivia", "traits": ["Freljord", "Invoker"], "cost": 1, "diff": 1, "role": "carry"},
@@ -159,25 +207,20 @@ UNLOCKABLE_UNITS = [
 
 ALL_UNITS = STANDARD_UNITS + UNLOCKABLE_UNITS
 
-# --- ALGORITHM 1: UNLOCK MISSION (PARALLEL SEARCH & CLASSIFICATION) ---
+# --- ALGORITHM 1: UNLOCK MISSION (PARALLEL SEARCH) ---
 def solve_unlock_mission(slots, user_emblems):
     candidates = []
     limit_max = 10000000 
     loop_count = 0
 
-    # 1. POOL: Sử dụng TOÀN BỘ tướng để tìm kiếm song song
     region_units = [u for u in ALL_UNITS if any(t in REGION_DATA for t in u['traits'])]
     
-    # 2. SCORING: Ưu tiên Standard (Basic) hơn Unlock
     def get_unlock_score(u):
         score = 0
-        # Tướng Standard được ưu tiên tuyệt đối
         if any(u['name'] == su['name'] for su in STANDARD_UNITS):
             score += 5000
-        # Tướng đa hệ vùng đất (Bridge Units)
         r_count = sum(1 for t in u['traits'] if t in REGION_DATA)
         if r_count >= 2: score += 1000
-        # Tướng trùng Ấn
         for t in u['traits']:
             if t in user_emblems: score += 100
             if t == "Targon": score += 50 
@@ -186,7 +229,6 @@ def solve_unlock_mission(slots, user_emblems):
 
     region_units.sort(key=get_unlock_score, reverse=True)
     
-    # 3. DIVERSITY: Đảm bảo có đủ tướng Standard và Unlock để so sánh
     standard_best = [u for u in region_units if any(u['name'] == su['name'] for su in STANDARD_UNITS)][:28]
     unlock_best = [u for u in region_units if any(u['name'] == uu['name'] for uu in UNLOCKABLE_UNITS)][:10]
     search_pool = standard_best + unlock_best
@@ -198,13 +240,12 @@ def solve_unlock_mission(slots, user_emblems):
 
         traits = {}
         total_cost = 0
-        unlock_count = 0 
+        unlock_count = 0
         
         for u in team:
             total_cost += u.get('cost', 1)
             if any(u['name'] == ul['name'] for ul in UNLOCKABLE_UNITS):
                 unlock_count += 1
-                
             for t in u['traits']:
                 traits[t] = traits.get(t, 0) + 1
                 
@@ -228,9 +269,6 @@ def solve_unlock_mission(slots, user_emblems):
             })
             if len(candidates) >= 20: break
     
-    # SẮP XẾP: 1. Số vùng (Cao -> Thấp)
-    # 2. Số lượng Unlock (THẤP NHẤT -> Ưu tiên Basic Shop)
-    # 3. Giá tiền (Thấp -> Cao)
     candidates.sort(key=lambda x: (-x['active_count'], x['unlock_count'], x['cost']))
     return candidates[:5]
 
@@ -264,7 +302,6 @@ def build_synergy_pool(base_pool, user_emblems, prioritize_strength=False):
             final_pool.append(u)
             seen_names.add(u['name'])
 
-    # FORCE PARTNERS FOR HIGH COST UNITS
     high_value_units = [u for u in final_pool if u['cost'] >= 4]
     for hv in high_value_units:
         for t in hv['traits']:
@@ -303,7 +340,6 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
             if loop_count > limit_max: break
             if len(set([u['name'] for u in team])) < len(team): continue
 
-            # ANNIE SLOT LOGIC
             slots_used = 0
             has_annie = False
             for u in team:
@@ -464,23 +500,78 @@ st.markdown("**Strategic Diversity:** Full Optimization.")
 
 with st.sidebar:
     st.header("⚙️ Config")
-    level = st.selectbox("Level:", [8, 9, 10, 11])
+    
+    # --- MULTI-LANGUAGE SELECTOR ---
+    lang_options = ["Tiếng Việt", "English"]
+    lang_choice = st.selectbox("🌐 Language", lang_options)
+    
+    # Dictionary
+    T = {
+        "Tiếng Việt": {
+            "title": "🧙‍♂️ TFT Mùa 16: Tool Ryze AI",
+            "subtitle": "**Đa dạng chiến thuật:** Tối ưu hóa toàn diện.",
+            "config": "⚙️ Cấu hình",
+            "level": "Cấp độ (Level):",
+            "btn_find": "🚀 TÌM ĐỘI HÌNH",
+            "emb_region": "🌍 Ấn Vùng Đất (Region Emblems)",
+            "emb_class": "🛡️ Ấn Tộc/Hệ (Class Emblems)",
+            "donate_title": "### ☕ Ủng hộ Dev",
+            "donate_btn": "☕ Buy Me a Coffee",
+            "tabs": ["Giá Rẻ (Eco)", "Tiêu Chuẩn (Standard)", "EXODIA (Tối Thượng)", "🔓 MỞ KHÓA RYZE"],
+            "mission_info": "🏆 **Nhiệm vụ:** Kích hoạt 5 Vùng Đất để mở khóa Ryze.",
+            "tag_basic": "🟢 **SHOP CƠ BẢN (CÓ SẴN)**",
+            "tag_unlock": "🟠 **CẦN MỞ KHÓA ({})**",
+            "err_unlock": "Không tìm thấy cách kích 5 vùng với số slot hiện tại.",
+            "err_combat": "Không tìm thấy đội hình phù hợp.",
+            "labels": [
+                "👑 Lựa chọn 1: CÂN BẰNG NHẤT (AI Khuyên dùng)",
+                "🌍 Lựa chọn 2: TỐI ĐA VÙNG ĐẤT (Ryze Max Ping)",
+                "🛡️ Lựa chọn 3: TỐI ĐA TỘC HỆ (Kích nhiều hệ nhất)"
+            ]
+        },
+        "English": {
+            "title": "🧙‍♂️ TFT Set 16: Ryze AI Tool",
+            "subtitle": "**Strategic Diversity:** Full Optimization.",
+            "config": "⚙️ Config",
+            "level": "Level:",
+            "btn_find": "🚀 FIND TEAMS",
+            "emb_region": "🌍 Region Emblems",
+            "emb_class": "🛡️ Class/Trait Emblems",
+            "donate_title": "### ☕ Support Dev",
+            "donate_btn": "☕ Buy Me a Coffee",
+            "tabs": ["Low Cost (Eco)", "Standard", "EXODIA", "🔓 UNLOCK RYZE"],
+            "mission_info": "🏆 **Mission:** Activate 5 Regions to Unlock Ryze.",
+            "tag_basic": "🟢 **BASIC SHOP (AVAILABLE)**",
+            "tag_unlock": "🟠 **REQUIRES {} UNLOCK(S)**",
+            "err_unlock": "Cannot find 5 regions with current slots.",
+            "err_combat": "No valid team found.",
+            "labels": [
+                "👑 Option 1: BEST BALANCED (AI Choice)",
+                "🌍 Option 2: MAX REGIONS (Ryze Max Power)",
+                "🛡️ Option 3: MAX SYNERGY (Trait Count)"
+            ]
+        }
+    }
+    
+    t = T[lang_choice] # Current Language
+
+    level = st.selectbox(t["level"], [8, 9, 10, 11])
     st.markdown("<br>", unsafe_allow_html=True)
-    run = st.button("🚀 FIND TEAMS", type="primary")
+    run = st.button(t["btn_find"], type="primary")
     st.markdown("---")
     
     # --- MERGED EMBLEM INPUTS ---
     r_emblems = {}
     c_emblems = {}
     
-    with st.expander("🌍 Region Emblems", expanded=True):
+    with st.expander(t["emb_region"], expanded=True):
         cols = st.columns(2)
         keys = sorted(REGION_DATA.keys())
         for i, k in enumerate(keys):
             v = cols[i%2].number_input(k, 0, 3, key=f"r_{k}")
             if v: r_emblems[k] = v
             
-    with st.expander("🛡️ Class/Trait Emblems", expanded=False):
+    with st.expander(t["emb_class"], expanded=False):
         cols = st.columns(2)
         keys = sorted(list(CLASS_DATA.keys())) 
         for i, k in enumerate(keys):
@@ -491,14 +582,11 @@ with st.sidebar:
 
     # --- PAYPAL DONATE ---
     st.markdown("---")
-    st.markdown("### ☕ Support Dev")
-    
-    # Link donate qua email
-    paypal_email = "tulinh0909245@gmail.com"
-    paypal_url = f"https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business={paypal_email}&currency_code=USD"
+    st.markdown(t["donate_title"])
+    donate_url = "https://buymeacoffee.com/ngocbaocr1q"
     
     st.markdown(f"""
-        <a href="{paypal_url}" target="_blank" style="text-decoration: none;">
+        <a href="{donate_url}" target="_blank" style="text-decoration: none;">
             <div style="
                 background-color: #0070BA; 
                 color: white; 
@@ -514,54 +602,52 @@ with st.sidebar:
                 align-items: center;
                 margin: 0 auto;
             ">
-                💙 Donate via PayPal
+                {t["donate_btn"]}
             </div>
         </a>
     """, unsafe_allow_html=True)
 
 if run:
-    # --- SLOT LOGIC FIX ---
     slots_for_unlock = level
     slots_for_combat = level - 1 
     
-    tab1, tab2, tab3, tab4 = st.tabs(["Low Cost (Eco)", "Standard", "EXODIA", "🔓 UNLOCK RYZE"])
+    tab1, tab2, tab3, tab4 = st.tabs(t["tabs"])
     
     pool_easy_eco = [u for u in STANDARD_UNITS if u['cost'] <= 3] 
     pool_mid = [u for u in ALL_UNITS if u['diff'] <= 2]
 
     # UNLOCK MISSION TAB
     with tab4:
-        st.info("🏆 **Mission:** Activate 5 Regions to Unlock Ryze.")
+        st.info(t["mission_info"])
         
         def render_unlock(sub_tab):
             with sub_tab:
-                with st.spinner(f"Calculating best paths with {slots_for_unlock} slots..."):
+                with st.spinner(t["spinner_unlock"]):
                     res = solve_unlock_mission(slots_for_unlock, user_emblems) 
                 
                 if res:
                     for i, data in enumerate(res):
                         expanded = (i==0)
                         u_count = data['unlock_count']
-                        if u_count == 0:
-                            tag = "🟢 **BASIC SHOP**"
-                        else:
-                            tag = f"🟠 **UNLOCK ({u_count})**"
+                        
+                        if u_count == 0: tag = t["tag_basic"]
+                        else: tag = t["tag_unlock"].format(u_count)
                             
-                        title = f"{tag} | Option {i+1}: {data['active_count']} Regions (Cost: {data['cost']}🟡)"
+                        title = f"{tag} | {t['res_option']} {i+1}: {data['active_count']} {t['res_regions']} ({t['res_cost']}: {data['cost']}🟡)"
                         
                         with st.expander(title, expanded=expanded):
-                            st.success(f"**Active:** {', '.join(data['regions'])}")
+                            st.success(f"{t['active']} {', '.join(data['regions'])}")
                             cols = st.columns(2)
                             active_region_names = [r.split('(')[0] for r in data['regions']]
                             idx = 1
                             for u in data['team']:
                                 col = cols[(idx-1) % 2]
                                 traits_html = []
-                                for t in u['traits']:
-                                    if t in active_region_names:
-                                        traits_html.append(f"<span style='color:#2E7D32'><b>{t}</b></span>")
+                                for tr in u['traits']:
+                                    if tr in active_region_names:
+                                        traits_html.append(f"<span style='color:#2E7D32'><b>{tr}</b></span>")
                                     else:
-                                        traits_html.append(f"<span style='color:#555'>{t}</span>")
+                                        traits_html.append(f"<span style='color:#555'>{tr}</span>")
                                 
                                 unit_name_display = u['name']
                                 if any(u['name'] == ul['name'] for ul in UNLOCKABLE_UNITS):
@@ -570,26 +656,17 @@ if run:
                                 col.markdown(f"{idx}. **{unit_name_display}** ({u['cost']}🟡) : {' '.join(traits_html)}", unsafe_allow_html=True)
                                 idx += 1
                 else:
-                    st.error(f"Cannot find 5 regions with {slots_for_unlock} slots.")
+                    st.error(t["err_unlock"])
         
         render_unlock(st.container())
 
     # COMBAT TABS
     def render(tab, pool, p_str=False):
         with tab:
-            if p_str: st.caption("Prioritizes Strength & High Cost Units.")
-            elif pool == pool_easy_eco: st.caption("Uses Cost 1, 2, 3 units for max synergy.")
-            
-            with st.spinner(f"Finding teammates for Ryze ({slots_for_combat} slots)..."):
+            with st.spinner(t["spinner_combat"]):
                 res = solve_three_strategies(pool, slots_for_combat, user_emblems, p_str)
             
             if res:
-                labels = [
-                    "👑 Option 1: BEST BALANCED (AI Choice)",
-                    "🌍 Option 2: MAX REGIONS (Ryze Max Power)",
-                    "🛡️ Option 3: MAX SYNERGY (Trait Count)"
-                ]
-                
                 for i, data in enumerate(res):
                     if not data: continue
                     team = data['team']
@@ -597,7 +674,7 @@ if run:
                     c_l = data['c_list']
                     
                     expanded = (i==0)
-                    title = f"{labels[i]}: {len(r_l)} Regions / {len(c_l)} Classes"
+                    title = f"{t['labels'][i]}: {len(r_l)} Regions / {len(c_l)} Classes"
                     if data['galio']: title += " (GALIO)"
                     
                     with st.expander(title, expanded=expanded):
@@ -615,12 +692,12 @@ if run:
                             unit_note = " (+Tibbers)" if u['name'] == "Annie" else ""
                             if u['name'] == "Annie": unit_note += " 🐻 (2 Slots)"
                             
-                            for t in u['traits']:
-                                if "Targon" in t: traits_html.append(f"<span style='color:#9C27B0'><b>{t}</b></span>")
-                                elif t in UNIQUE_TRAITS or t == "Darkin": traits_html.append(f"<span style='color:#B8860B'><b>{t}</b></span>")
-                                elif any(t in x for x in r_l): traits_html.append(f"<span style='color:#2E7D32'><b>{t}</b></span>")
-                                elif any(t in x for x in c_l): traits_html.append(f"<span style='color:#E65100'><b>{t}</b></span>")
-                                else: traits_html.append(f"<span style='color:#555'>{t}</span>")
+                            for tr in u['traits']:
+                                if "Targon" in tr: traits_html.append(f"<span style='color:#9C27B0'><b>{tr}</b></span>")
+                                elif tr in UNIQUE_TRAITS or tr == "Darkin": traits_html.append(f"<span style='color:#B8860B'><b>{tr}</b></span>")
+                                elif any(tr in x for x in r_l): traits_html.append(f"<span style='color:#2E7D32'><b>{tr}</b></span>")
+                                elif any(tr in x for x in c_l): traits_html.append(f"<span style='color:#E65100'><b>{tr}</b></span>")
+                                else: traits_html.append(f"<span style='color:#555'>{tr}</span>")
 
                             name = "✨ GALIO (FREE)" if u['name'] == "Galio" else u['name']
                             if u['name'] == "Taric": name = "💎 TARIC"
@@ -632,7 +709,7 @@ if run:
                             else: cl.markdown(txt, unsafe_allow_html=True)
                             idx += 1
             else:
-                st.warning("No valid team found.")
+                st.warning(t["err_combat"])
 
     render(tab1, pool_easy_eco)
     render(tab2, pool_mid, True) 
