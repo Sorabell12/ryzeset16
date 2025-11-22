@@ -43,8 +43,7 @@ CLASS_DATA = {
 
 UNIQUE_TRAITS = list(CLASS_DATA.keys())[-22:]
 
-# GOD TIER (For Deadweight protection only)
-GOD_TIER = ["Aatrox", "Bel'Veth", "Sion", "Heimerdinger", "Ahri", "Senna", "K'Sante", "Gangplank"]
+# --- NO GOD TIER LIST HERE ---
 
 GALIO_UNIT = {"name": "Galio", "traits": ["Demacia", "Invoker", "Heroic"], "cost": 5, "diff": 3, "role": "tank"}
 
@@ -136,7 +135,7 @@ ALL_UNITS = [
 
     # 7 COST
     
-    # LOWER UNLOCKABLES (Common)
+    # LOWER UNLOCKABLES
     {"name": "Bard", "traits": ["Caretaker"], "cost": 2, "diff": 2, "role": "supp"},
     {"name": "Orianna", "traits": ["Piltover", "Invoker"], "cost": 2, "diff": 2, "role": "supp"},
     {"name": "Poppy", "traits": ["Demacia", "Yordle", "Juggernaut"], "cost": 1, "diff": 1, "role": "tank"},
@@ -148,9 +147,53 @@ ALL_UNITS = [
     {"name": "Kennen", "traits": ["Ionia", "Yordle", "Defender"], "cost": 1, "diff": 1, "role": "tank"},
     {"name": "LeBlanc", "traits": ["Noxus", "Invoker"], "cost": 3, "diff": 2, "role": "carry"},
     {"name": "Fizz", "traits": ["Bilgewater", "Yordle"], "cost": 1, "diff": 2, "role": "carry"},
+    
 ]
 
-# --- ALGORITHM ---
+# --- UNLOCK ALGORITHM ---
+def solve_unlock_mission(pool, slots, user_emblems):
+    candidates = []
+    limit_max = 500000 
+    loop_count = 0
+
+    region_units = [u for u in pool if any(t in REGION_DATA for t in u['traits'])]
+    region_units.sort(key=lambda x: x['cost'])
+    search_pool = region_units[:20]
+
+    for team in itertools.combinations(search_pool, slots):
+        loop_count += 1
+        if loop_count > limit_max: break
+        if len(set([u['name'] for u in team])) < len(team): continue
+
+        traits = {}
+        total_cost = 0
+        for u in team:
+            total_cost += u.get('cost', 1)
+            for t in u['traits']:
+                traits[t] = traits.get(t, 0) + 1
+        for emb, count in user_emblems.items():
+            traits[emb] = traits.get(emb, 0) + count
+        
+        active_regions = 0
+        active_list = []
+        for r, data in REGION_DATA.items():
+            if traits.get(r, 0) >= data['thresholds'][0]:
+                active_regions += 1
+                active_list.append(f"{r}({traits[r]})")
+        
+        if active_regions >= 5:
+            candidates.append({
+                "team": list(team),
+                "active_count": active_regions,
+                "cost": total_cost,
+                "regions": active_list
+            })
+            if len(candidates) >= 5 and total_cost < 20: break
+    
+    candidates.sort(key=lambda x: (-x['active_count'], x['cost']))
+    return candidates[:3]
+
+# --- MAIN ALGORITHM ---
 def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False):
     region_units = [u for u in pool if any(t in REGION_DATA for t in u['traits'])]
     targon = [u for u in pool if "Targon" in u['traits']]
@@ -159,15 +202,15 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
         high_cost = [u for u in pool if u['cost'] >= 4]
         mid_cost = [u for u in pool if u['cost'] == 3]
         efficient_low = [u for u in region_units if u['cost'] < 3 and len(u['traits']) >= 3]
+        
         raw_pool = high_cost + mid_cost + efficient_low + targon
         final_pool = list({v['name']:v for v in raw_pool}.values())
+        # Sort by Cost + Trait count (Efficiency), NOT NAME
         final_pool.sort(key=lambda x: 100 if x['name'] == "Taric" else (x['cost'] + (1 if len(x['traits'])>=3 else 0)), reverse=True)
         final_pool = final_pool[:35] 
     else:
-        # --- FIXED: Expanded Low Cost Pool (Includes Cost 3) ---
-        low_cost_all = [u for u in pool if u['cost'] <= 3]
+        low_cost_all = [u for u in pool if u['cost'] <= 3] 
         final_pool = low_cost_all 
-        # Sort by efficiency
         final_pool.sort(key=lambda x: len(x['traits']), reverse=True)
         final_pool = final_pool[:28] 
 
@@ -205,21 +248,17 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
         unused_emblem_penalty = 0
         active_regions_set = set()
         
-        # REGION SCORING
         for r, data in REGION_DATA.items():
             count = traits.get(r, 0)
             if count >= data['thresholds'][0]: 
                 r_score += 1
                 active_regions_set.add(r)
-                
-                # Sprawl Penalty
                 current_tier_threshold = 0
                 for t in data['thresholds']:
                     if count >= t: current_tier_threshold = t
                     else: break
                 wasted = count - current_tier_threshold
                 if wasted > 0: unused_emblem_penalty -= (wasted * 10)
-
             elif user_emblems.get(r, 0) > 0:
                 unused_emblem_penalty -= 15
         
@@ -230,11 +269,16 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
                 c_score += 1
                 active_classes_set.add(cl)
         
-        # DEADWEIGHT CHECK
+        # DEADWEIGHT CHECK (NO GOD EXCEPTIONS)
         useless_unit_penalty = 0
+        targon_c = traits.get("Targon", 0)
+        if targon_c == 1: useless_unit_penalty += 50
+        elif targon_c > 1: useless_unit_penalty -= 30
+        elif targon_c == 0: useless_unit_penalty -= 100
+        
         for u in final_team:
             if u['name'] in ["Ryze", "Galio", "Taric", "Ornn"]: continue
-            if u['name'] in GOD_TIER: continue 
+            # NO GOD_TIER check here. Everyone is equal.
             
             if "Targon" in u['traits']: continue
             
@@ -265,14 +309,13 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
         elif tank_count < 3 and slots >= 8: balance_penalty = -2
         
         targon_bonus = 0
-        if traits.get("Targon", 0) == 1: targon_bonus = 50
-        elif traits.get("Targon", 0) > 1: targon_bonus = -30
         if "Taric" in names: targon_bonus += 20
         
         annie_penalty = -12 if "Annie" in names else 0
         
         final_r = r_score + (5 if has_galio else 0)
         
+        # Smart Score (No God Bonus)
         smart_score = (final_r * 25.0) + (c_score * 5.0) + balance_penalty + unused_emblem_penalty + targon_bonus + annie_penalty + useless_unit_penalty
         
         r_list_fmt = [f"{r}({traits[r]})" for r in REGION_DATA if traits.get(r,0) >= REGION_DATA[r]['thresholds'][0]]
@@ -326,7 +369,7 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
 
 # --- UI ---
 st.title("🧙‍♂️ TFT Set 16: Ryze AI Tool")
-st.markdown("**Strategic Diversity:** Smart Economy (Cost 1-3 Included).")
+st.markdown("**Strategic Diversity:** Unlock Mission & Optimization.")
 
 with st.sidebar:
     st.header("⚙️ Config")
@@ -350,15 +393,42 @@ with st.sidebar:
 
 if run:
     slots = level - 1
-    tab1, tab2, tab3 = st.tabs(["Low Cost (Eco)", "Standard", "EXODIA (Smart Value)"])
+    tab1, tab2, tab3, tab4 = st.tabs(["Low Cost (Eco)", "Standard", "EXODIA", "🔓 UNLOCK RYZE"])
     
-    pool_easy = [u for u in ALL_UNITS if u['cost'] <= 3] # Cost 3 included!
+    pool_easy_eco = [u for u in ALL_UNITS if u['cost'] <= 3] 
     pool_mid = [u for u in ALL_UNITS if u['diff'] <= 2]
     
+    # UNLOCK MISSION TAB
+    with tab4:
+        st.info("🏆 **Mission:** Activate 5 Regions to Unlock Ryze.")
+        sub1, sub2 = st.tabs(["Basic Shop (Diff 1)", "Mixed (Diff 1-2)"])
+        unlock_pool_basic = [u for u in ALL_UNITS if u['diff'] == 1]
+        unlock_pool_mixed = [u for u in ALL_UNITS if u['diff'] <= 2]
+        
+        def render_unlock(sub_tab, u_pool):
+            with sub_tab:
+                with st.spinner("Calculating cheapest 5-Region comps..."):
+                    res = solve_unlock_mission(u_pool, level, user_emblems) 
+                
+                if res:
+                    for i, data in enumerate(res):
+                        st.markdown(f"##### 🎯 Option {i+1}: {data['active_count']} Regions (Cost: {data['cost']}🟡)")
+                        st.success(f"**Active:** {', '.join(data['regions'])}")
+                        cols = st.columns(4)
+                        for j, u in enumerate(data['team']):
+                            txt = f"{u['name']} ({u['cost']})"
+                            cols[j % 4].caption(txt)
+                        st.divider()
+                else:
+                    st.error("Cannot find 5 regions.")
+        
+        render_unlock(sub1, unlock_pool_basic)
+        render_unlock(sub2, unlock_pool_mixed)
+
     def render(tab, pool, p_str=False):
         with tab:
-            if p_str: st.caption("Prioritizes **God Tier**, Active Regions & No Wasted Slots.")
-            elif pool == pool_easy: st.caption("Uses Cost 1, 2, 3 units for max synergy.")
+            if p_str: st.caption("Prioritizes Active Regions & No Wasted Slots.")
+            elif pool == pool_easy_eco: st.caption("Uses Cost 1, 2, 3 units for max synergy.")
             
             with st.spinner("Analyzing strategies..."):
                 res = solve_three_strategies(pool, slots, user_emblems, p_str)
@@ -405,7 +475,7 @@ if run:
 
                             name = "✨ GALIO (FREE)" if u['name'] == "Galio" else u['name']
                             if u['name'] == "Taric": name = "💎 TARIC"
-                            if u['name'] in GOD_TIER: name = f"🔥 {u['name'].upper()}"
+                            if u['name'] == "Ornn": name = "🔨 ORNN"
                             
                             txt = f"{idx}. **{name}**{unit_note} {role_icon} : {' '.join(traits_html)}"
                             
@@ -415,7 +485,7 @@ if run:
             else:
                 st.warning("No valid team found.")
 
-    render(tab1, pool_easy)
+    render(tab1, pool_easy_eco)
     render(tab2, pool_mid)
     render(tab3, ALL_UNITS, True)
 
