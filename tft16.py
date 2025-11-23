@@ -35,7 +35,7 @@ T = {
         "tag_basic": "🟢 **SHOP CƠ BẢN (CÓ SẴN)**",
         "tag_unlock": "🟠 **CẦN MỞ KHÓA ({})**",
         "err_unlock": "Không tìm thấy cách kích 5 vùng với số slot hiện tại.",
-        "err_combat": "Không tìm thấy đội hình phù hợp.",
+        "err_combat": "Không tìm thấy đội hình phù hợp. Hãy thử thêm Ấn hoặc đổi Level.",
         "spinner_unlock": "Đang tính toán lộ trình rẻ nhất...",
         "spinner_combat": "Đang tìm đồng đội cho Ryze...",
         "res_option": "Lựa chọn",
@@ -44,8 +44,8 @@ T = {
         "active": "**Kích hoạt:**",
         "labels": [
             "👑 Lựa chọn 1: CÂN BẰNG NHẤT",
-            "🌍 Lựa chọn 2",
-            "🛡️ Lựa chọn 3"
+            "🌍 Lựa chọn 2: ƯU TIÊN VÙNG ĐẤT",
+            "🛡️ Lựa chọn 3: ƯU TIÊN TỘC HỆ"
         ]
     },
     "English": {
@@ -63,7 +63,7 @@ T = {
         "tag_basic": "🟢 **BASIC SHOP (AVAILABLE)**",
         "tag_unlock": "🟠 **REQUIRES {} UNLOCK(S)**",
         "err_unlock": "Cannot find 5 regions with current slots.",
-        "err_combat": "No valid team found.",
+        "err_combat": "No valid team found. Try adding Emblems or changing Level.",
         "spinner_unlock": "Calculating best paths...",
         "spinner_combat": "Finding teammates for Ryze...",
         "res_option": "Option",
@@ -72,8 +72,8 @@ T = {
         "active": "**Active:**",
         "labels": [
             "👑 Option 1: BEST BALANCED",
-            "🌍 Option 2",
-            "🛡️ Option 3"
+            "🌍 Option 2: MAX REGIONS",
+            "🛡️ Option 3: MAX TRAITS"
         ]
     }
 }
@@ -85,7 +85,7 @@ REGION_DATA = {
     "Freljord":     {"thresholds": [3, 5, 7]}, "Ionia": {"thresholds": [3, 5, 7, 10]},
     "Ixtal":        {"thresholds": [3, 5, 7]}, "Noxus": {"thresholds": [3, 5, 7, 10]},
     "Piltover":     {"thresholds": [2, 4, 6]}, "Shadow Isles": {"thresholds": [2, 3, 4, 5]},
-    "Shurima":      {"thresholds": [2, 3, 4, 6]}, "Targon": {"thresholds": [1, 2, 3, 4]},
+    "Shurima":      {"thresholds": [2, 3, 4, 6]}, "Targon": {"thresholds": [1, 2, 3, 4]}, # Targon is a region
     "Void":         {"thresholds": [2, 4, 6, 9]}, "Yordle": {"thresholds": [2, 4, 6, 8]},
     "Zaun":         {"thresholds": [3, 5, 7]}
 }
@@ -288,53 +288,50 @@ def solve_unlock_mission(slots, user_emblems):
 # --- ALGORITHM 2: STANDARD OPTIMIZER (CACHED) ---
 @st.cache_data(show_spinner=False)
 def build_synergy_pool(base_pool, user_emblems, prioritize_strength=False):
-    seed_traits = set(user_emblems.keys())
-    seed_traits.add("Targon")
+    # CHẤM ĐIỂM TIỀM NĂNG (UTILITY SCORE) CHO TỪNG TƯỚNG
+    # Mục tiêu: Tìm ra những tướng có khả năng kết nối tốt nhất (Bridge Units)
     
-    seed_units = [u for u in base_pool if any(t in seed_traits for t in u['traits'])]
-    linked_classes = set()
-    for u in seed_units:
-        for t in u['traits']:
-            if t in CLASS_DATA: linked_classes.add(t)
+    scored_pool = []
     
-    final_pool = []
-    seen_names = set()
-
-    for u in seed_units:
-        if u['name'] not in seen_names:
-            final_pool.append(u)
-            seen_names.add(u['name'])
-            
     for u in base_pool:
-        if u['name'] in seen_names: continue
-        has_link = False
-        for t in u['traits']:
-            if t in linked_classes:
-                has_link = True
-                break
-        if has_link:
-            final_pool.append(u)
-            seen_names.add(u['name'])
-
-    high_value_units = [u for u in final_pool if u['cost'] >= 4]
-    for hv in high_value_units:
-        for t in hv['traits']:
-            if t in CLASS_DATA or t in REGION_DATA:
-                partners = [p for p in base_pool if t in p['traits'] and p['name'] not in seen_names]
-                for p in partners:
-                    final_pool.append(p)
-                    seen_names.add(p['name'])
-
-    if len(final_pool) < 50:
-        expensive_fillers = [u for u in base_pool if u['cost'] >= 4 and u['name'] not in seen_names]
-        final_pool.extend(expensive_fillers)
-
-    if prioritize_strength:
-        final_pool.sort(key=lambda x: (x['cost'], len(x['traits'])), reverse=True)
-    else:
-        final_pool.sort(key=lambda x: x['cost'])
+        score = 0
+        traits = u['traits']
         
-    return final_pool[:50]
+        # 1. ƯU TIÊN TỐI THƯỢNG: Trùng Ấn người dùng đang có
+        for t in traits:
+            if t in user_emblems:
+                score += 100
+        
+        # 2. ƯU TIÊN SỐ 2: Tướng Đa Hệ (3 Tộc/Hệ trở lên)
+        if len(traits) >= 3:
+            score += 50
+            
+        # 3. ƯU TIÊN SỐ 3: Tộc Vùng Đất (Region Traits)
+        has_region = False
+        for t in traits:
+            if t in REGION_DATA:
+                score += 30
+                has_region = True
+        
+        # 4. SỨC MẠNH CƠ BẢN (Cost)
+        if u['cost'] >= 4: score += 20
+        elif u['cost'] == 3: score += 10
+        
+        # Targon luôn hữu dụng
+        if "Targon" in traits: score += 15
+
+        scored_pool.append({"unit": u, "score": score})
+
+    # Sắp xếp theo điểm tiềm năng giảm dần
+    scored_pool.sort(key=lambda x: x['score'], reverse=True)
+    
+    # Lấy Top 45 tướng hữu dụng nhất
+    final_pool = [item['unit'] for item in scored_pool[:45]]
+    
+    # Sort lại theo Cost để itertools ưu tiên xếp tướng đắt làm trụ cột trước
+    final_pool.sort(key=lambda x: x['cost'], reverse=True)
+        
+    return final_pool
 
 @st.cache_data(show_spinner=False)
 def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False):
@@ -394,59 +391,74 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
             active_regions_set = set()
             unused_emblem_penalty = 0
             
+            # --- TÍNH ĐIỂM VÙNG ĐẤT (REGION SCORING) ---
             for r, data in REGION_DATA.items():
                 count = traits.get(r, 0)
                 if count >= data['thresholds'][0]: 
-                    r_score += 1
+                    tier_index = 0
+                    for i, t_val in enumerate(data['thresholds']):
+                        if count >= t_val: tier_index = i + 1
+                        else: break
+                    
+                    r_score += (tier_index * 2) 
                     active_regions_set.add(r)
+                    
                     current_tier_threshold = 0
                     for t in data['thresholds']:
                         if count >= t: current_tier_threshold = t
                         else: break
-                    if count > current_tier_threshold: unused_emblem_penalty -= 5
+                    if count > current_tier_threshold: unused_emblem_penalty -= 2 
                 elif user_emblems.get(r, 0) > 0:
-                    unused_emblem_penalty -= 15
+                    unused_emblem_penalty -= 10 
             
             final_r = r_score + (5 if has_galio else 0) 
             
             if final_r == 0: continue
-            # ==========================================================
 
-            final_r_penalty = 0
-            if final_r < 3 and slots >= 7 and not has_galio: 
-                final_r_penalty = -500
-
+            # --- TÍNH ĐIỂM HỆ NGHỀ (CLASS SCORING) ---
             c_score = 0
             active_classes_set = set()
             for cl, thresholds in CLASS_DATA.items():
                 if traits.get(cl, 0) >= thresholds[0]: 
-                    c_score += 2 
+                    c_score += 1 
                     active_classes_set.add(cl)
-            
 
+            # --- BỘ LỌC DEAD WEIGHT ---
+            dead_weight_count = 0
             useless_unit_penalty = 0
+            
             for u in final_team:
                 if u['name'] in ["Ryze", "Galio", "Taric", "Ornn"]: continue
                 
-                contributing_traits = [t for t in u['traits'] if t not in UNIQUE_TRAITS] 
-                
-                is_contributing = False
-                for t in contributing_traits: # CHỈ kiểm tra Tộc/Hệ đa đơn vị/Vùng đất
-                    if t in active_regions_set or t in active_classes_set:
-                        is_contributing = True
+                is_active = False
+                for t in u['traits']:
+                    if t in active_regions_set or t in active_classes_set or t in UNIQUE_TRAITS:
+                        is_active = True
                         break
-                        
-                if not is_contributing:
-                    if u['cost'] <= 2: useless_unit_penalty -= 30
-                    else: useless_unit_penalty -= 500 
+                
+                if not is_active:
+                    dead_weight_count += 1
+                    useless_unit_penalty -= 500 
+            
+            if dead_weight_count > 1: continue
 
+            final_r_penalty = 0
+            if len(active_regions_set) < 2 and slots >= 7: 
+                final_r_penalty = -500
+
+            # --- XỬ LÝ TARGON (ĐÃ FIX LỖI SPAM TARGON) ---
             targon_c = traits.get("Targon", 0)
-            if targon_c == 1: useless_unit_penalty += 50
-            elif targon_c > 1: useless_unit_penalty -= 20
-            elif targon_c == 0: useless_unit_penalty -= 100 
-
+            if targon_c == 1: 
+                useless_unit_penalty += 100 # Thưởng lớn nếu chỉ có 1 Targon
+            elif targon_c > 1: 
+                # PHẠT CỰC NẶNG (-2000) ĐỂ GHI ĐÈ ĐIỂM CỘNG TỪ REGION SCORING
+                useless_unit_penalty -= 2000 
+            elif targon_c == 0:
+                useless_unit_penalty -= 50
+            
+            # --- UNIQUE TRAITS (ĐÃ FIX LỖI UnboundLocalError) ---
             for u_trait in UNIQUE_TRAITS:
-                if traits.get(u_trait, 0) >= 1:
+                 if traits.get(u_trait, 0) >= 1:
                     if u_trait == "Blacksmith": c_score += 1
                     else:
                         unit_with_trait = next((u for u in final_team if u_trait in u['traits']), None)
@@ -454,6 +466,8 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
                             is_supported = False
                             for other_t in unit_with_trait['traits']:
                                 if other_t in active_regions_set or other_t in active_classes_set: is_supported = True
+                            
+                            # CHỈ CỘNG ĐIỂM, KHÔNG APPEND VÀO LIST
                             if is_supported: c_score += 1 
 
             balance_penalty = 0
@@ -465,21 +479,26 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
             
             strength_score = 0
             if prioritize_strength:
-                strength_score = team_total_cost * 2.0 
+                strength_score = team_total_cost * 0.1
 
-            smart_score = (final_r * 100.0) + \
-                          (c_score * 12.0) + \
+            synergy_density = (len(active_regions_set) * 10) + (len(active_classes_set) * 5)
+
+            smart_score = (final_r * 150.0) + \
+                          (c_score * 20.0) + \
                           strength_score + \
+                          synergy_density + \
                           balance_penalty + unused_emblem_penalty + targon_bonus + annie_penalty + useless_unit_penalty + final_r_penalty
             
+            # --- TẠO DANH SÁCH HIỂN THỊ (FINAL FORMATTING) ---
             r_list_fmt = [f"{r}({traits[r]})" for r in REGION_DATA if traits.get(r,0) >= REGION_DATA[r]['thresholds'][0]]
             c_list_fmt = [f"{c}({traits[c]})" for c in CLASS_DATA if traits.get(c,0) >= CLASS_DATA[c][0] and c not in UNIQUE_TRAITS]
             if traits.get("Darkin", 0) >= 1: c_list_fmt.append(f"Darkin({traits['Darkin']})")
             
+            # Thêm Unique Traits vào hiển thị
             for u_trait in UNIQUE_TRAITS:
                 if traits.get(u_trait, 0) >= 1:
-                    if u_trait == "Blacksmith": c_list_fmt.append("Blacksmith")
-                    else:
+                     if u_trait == "Blacksmith": c_list_fmt.append("Blacksmith")
+                     else:
                         unit_with_trait = next((u for u in final_team if u_trait in u['traits']), None)
                         if unit_with_trait:
                             is_supported = False
@@ -503,7 +522,7 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
     candidates.sort(key=lambda x: x['smart_score'], reverse=True)
     opt1 = candidates[0]
     
-    candidates.sort(key=lambda x: (x['r_score'], x['smart_score']), reverse=True)
+    candidates.sort(key=lambda x: (len(x['r_list']), x['smart_score']), reverse=True)
     opt2 = candidates[0]
     if opt2['team'] == opt1['team']:
         for cand in candidates:
@@ -511,7 +530,7 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
                 opt2 = cand
                 break
     
-    candidates.sort(key=lambda x: (x['c_score'], x['smart_score']), reverse=True)
+    candidates.sort(key=lambda x: (len(x['c_list']), x['smart_score']), reverse=True)
     opt3 = candidates[0]
     for cand in candidates:
         if cand['team'] != opt1['team'] and cand['team'] != opt2['team']:
@@ -695,9 +714,3 @@ if run:
 
 elif not run:
     st.info("👈 Select Level -> Click FIND TEAMS")
-
-
-
-
-
-
