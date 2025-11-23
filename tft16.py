@@ -22,7 +22,7 @@ st.markdown("""
 T = {
     "Tiếng Việt": {
         "title": "🧙‍♂️ TFT Mùa 16: Tool Ryze AI",
-        "subtitle": "**Đa dạng chiến thuật:** Tối ưu hóa toàn diện.",
+        "subtitle": "**Logic Mới:** Power Pairs (Azir + Xerath) & Meta Scoring.",
         "config": "⚙️ Cấu hình",
         "level": "Cấp độ (Level):",
         "btn_find": "🚀 TÌM ĐỘI HÌNH",
@@ -44,13 +44,13 @@ T = {
         "active": "**Kích hoạt:**",
         "labels": [
             "👑 Lựa chọn 1: CÂN BẰNG NHẤT",
-            "🌍 Lựa chọn 2: ƯU TIÊN VÙNG ĐẤT",
-            "🛡️ Lựa chọn 3: ƯU TIÊN TỘC HỆ"
+            "🌍 Lựa chọn 2: TỐI ĐA VÙNG ĐẤT",
+            "🛡️ Lựa chọn 3: TỐI ĐA TỘC HỆ"
         ]
     },
     "English": {
         "title": "🧙‍♂️ TFT Set 16: Ryze AI Tool",
-        "subtitle": "**Strategic Diversity:** Full Optimization.",
+        "subtitle": "**New Logic:** Power Pairs (Azir + Xerath) & Meta Scoring.",
         "config": "⚙️ Config",
         "level": "Level:",
         "btn_find": "🚀 FIND TEAMS",
@@ -292,7 +292,9 @@ def build_synergy_pool(base_pool, user_emblems, prioritize_strength=False):
     # Mục tiêu: Tìm ra những tướng có khả năng kết nối tốt nhất (Bridge Units)
     
     scored_pool = []
-    
+    # Kiểm tra xem có Azir trong pool không (để kích hoạt Buddy System)
+    has_azir_in_base = any(u['name'] == "Azir" for u in base_pool)
+
     for u in base_pool:
         score = 0
         traits = u['traits']
@@ -319,6 +321,11 @@ def build_synergy_pool(base_pool, user_emblems, prioritize_strength=False):
         
         # Targon luôn hữu dụng
         if "Targon" in traits: score += 15
+
+        # --- LOGIC MỚI: BUDDY SYSTEM (CẶP BÀI TRÙNG) ---
+        # Nếu có Azir, buộc phải kéo Xerath lên top để tính toán
+        if has_azir_in_base and u['name'] == "Xerath":
+            score += 200 # Cộng cực lớn để đảm bảo lọt top 45
 
         scored_pool.append({"unit": u, "score": score})
 
@@ -417,13 +424,17 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
 
             # --- TÍNH ĐIỂM HỆ NGHỀ (CLASS SCORING) ---
             c_score = 0
+            unique_bonus = 0 
             active_classes_set = set()
+            
             for cl, thresholds in CLASS_DATA.items():
+                if cl in UNIQUE_TRAITS: continue # Bỏ qua Unique traits
+                
                 if traits.get(cl, 0) >= thresholds[0]: 
                     c_score += 1 
                     active_classes_set.add(cl)
 
-            # --- BỘ LỌC DEAD WEIGHT ---
+            # --- BỘ LỌC DEAD WEIGHT (ĐÃ FIX LOGIC) ---
             dead_weight_count = 0
             useless_unit_penalty = 0
             
@@ -432,13 +443,17 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
                 
                 is_active = False
                 for t in u['traits']:
-                    if t in active_regions_set or t in active_classes_set or t in UNIQUE_TRAITS:
+                    if t in active_regions_set or t in active_classes_set:
+                        is_active = True
+                        break
+                    # Giữ lại tướng 5 tiền Unique (Aatrox, Belveth...)
+                    if t in UNIQUE_TRAITS and u['cost'] == 5:
                         is_active = True
                         break
                 
                 if not is_active:
                     dead_weight_count += 1
-                    useless_unit_penalty -= 500 
+                    useless_unit_penalty -= 1000 
             
             if dead_weight_count > 1: continue
 
@@ -446,7 +461,7 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
             if len(active_regions_set) < 2 and slots >= 7: 
                 final_r_penalty = -500
 
-            # --- XỬ LÝ TARGON (ĐÃ FIX LỖI SPAM TARGON) ---
+            # --- XỬ LÝ TARGON & NERF FIZZ ---
             targon_c = traits.get("Targon", 0)
             if targon_c == 1: 
                 useless_unit_penalty += 100 # Thưởng lớn nếu chỉ có 1 Targon
@@ -455,11 +470,15 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
                 useless_unit_penalty -= 2000 
             elif targon_c == 0:
                 useless_unit_penalty -= 50
+
+            # Nếu có Fizz trong Exodia mode mà không kích Bilgewater, trừ nặng
+            if prioritize_strength and "Fizz" in names and traits.get("Bilgewater", 0) < 3:
+                useless_unit_penalty -= 300
             
             # --- UNIQUE TRAITS (ĐÃ FIX LỖI UnboundLocalError) ---
             for u_trait in UNIQUE_TRAITS:
                  if traits.get(u_trait, 0) >= 1:
-                    if u_trait == "Blacksmith": c_score += 1
+                    if u_trait == "Blacksmith": unique_bonus += 0.5
                     else:
                         unit_with_trait = next((u for u in final_team if u_trait in u['traits']), None)
                         if unit_with_trait:
@@ -468,10 +487,10 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
                                 if other_t in active_regions_set or other_t in active_classes_set: is_supported = True
                             
                             # CHỈ CỘNG ĐIỂM, KHÔNG APPEND VÀO LIST
-                            if is_supported: c_score += 1 
+                            if is_supported: unique_bonus += 0.5
 
             balance_penalty = 0
-            if tank_count < 2: balance_penalty = -10 
+            if tank_count < 2 and not prioritize_strength: balance_penalty = -10 
             
             targon_bonus = 0
             if "Taric" in names: targon_bonus += 20
@@ -483,8 +502,18 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
 
             synergy_density = (len(active_regions_set) * 10) + (len(active_classes_set) * 5)
 
-            smart_score = (final_r * 150.0) + \
-                          (c_score * 20.0) + \
+            # --- POWER PAIRS: AZIR + XERATH (NEW) ---
+            combo_bonus = 0
+            if "Azir" in names and "Xerath" in names:
+                combo_bonus += 5000 # Boost cực đại
+            # Nếu có Azir mà thiếu Xerath (trong tab Exodia), trừ điểm
+            elif "Azir" in names and "Xerath" not in names and prioritize_strength:
+                combo_bonus -= 500
+
+            smart_score = (final_r * 200.0) + \
+                          (c_score * 40.0) + \
+                          (unique_bonus * 5.0) + \
+                          combo_bonus + \
                           strength_score + \
                           synergy_density + \
                           balance_penalty + unused_emblem_penalty + targon_bonus + annie_penalty + useless_unit_penalty + final_r_penalty
@@ -506,6 +535,9 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
                                 if other_t in active_regions_set or other_t in active_classes_set: is_supported = True
                             if is_supported: c_list_fmt.append(u_trait)
 
+            # Đếm số lượng Region Active THỰC TẾ (dùng để sort Option 2)
+            real_active_regions = len(active_regions_set)
+
             candidates.append({
                 "team": final_team,
                 "r_score": final_r,
@@ -514,7 +546,8 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
                 "r_list": r_list_fmt,
                 "c_list": c_list_fmt,
                 "galio": has_galio,
-                "tanks": tank_count
+                "tanks": tank_count,
+                "real_active_regions": real_active_regions 
             })
 
     if not candidates: return []
@@ -522,7 +555,9 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
     candidates.sort(key=lambda x: x['smart_score'], reverse=True)
     opt1 = candidates[0]
     
-    candidates.sort(key=lambda x: (len(x['r_list']), x['smart_score']), reverse=True)
+    # --- LOGIC OPTION 2: MAX REGIONS (ĐÃ FIX) ---
+    # Ưu tiên số lượng Vùng Đất thực tế (real_active_regions) lên hàng đầu
+    candidates.sort(key=lambda x: (x['real_active_regions'], x['smart_score']), reverse=True)
     opt2 = candidates[0]
     if opt2['team'] == opt1['team']:
         for cand in candidates:
