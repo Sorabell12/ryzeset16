@@ -13,7 +13,6 @@ st.markdown("""
         }
         div.stButton > button:hover { background-color: #FF0000; color: white; }
         .streamlit-expanderHeader { font-weight: bold; font-size: 1.1rem; }
-        /* Custom scrollbar for emblem inputs */
         .stNumberInput input { padding-right: 0px; }
     </style>
 """, unsafe_allow_html=True)
@@ -22,7 +21,7 @@ st.markdown("""
 T = {
     "Tiếng Việt": {
         "title": "🧙‍♂️ TFT Mùa 16: Tool Ryze AI",
-        "subtitle": "**Logic Mới:** Power Pairs (Azir + Xerath) & Meta Scoring.",
+        "subtitle": "**Logic Mới:** Giới hạn Max 2 Shurima (Azir + Xerath).",
         "config": "⚙️ Cấu hình",
         "level": "Cấp độ (Level):",
         "btn_find": "🚀 TÌM ĐỘI HÌNH",
@@ -50,7 +49,7 @@ T = {
     },
     "English": {
         "title": "🧙‍♂️ TFT Set 16: Ryze AI Tool",
-        "subtitle": "**New Logic:** Power Pairs (Azir + Xerath) & Meta Scoring.",
+        "subtitle": "**New Logic:** Soft Cap at 2 Shurima (Azir + Xerath).",
         "config": "⚙️ Config",
         "level": "Level:",
         "btn_find": "🚀 FIND TEAMS",
@@ -85,7 +84,7 @@ REGION_DATA = {
     "Freljord":     {"thresholds": [3, 5, 7]}, "Ionia": {"thresholds": [3, 5, 7, 10]},
     "Ixtal":        {"thresholds": [3, 5, 7]}, "Noxus": {"thresholds": [3, 5, 7, 10]},
     "Piltover":     {"thresholds": [2, 4, 6]}, "Shadow Isles": {"thresholds": [2, 3, 4, 5]},
-    "Shurima":      {"thresholds": [2, 3, 4, 6]}, "Targon": {"thresholds": [1, 2, 3, 4]}, # Targon is a region
+    "Shurima":      {"thresholds": [2, 3, 4, 6]}, "Targon": {"thresholds": [1, 2, 3, 4]}, 
     "Void":         {"thresholds": [2, 4, 6, 9]}, "Yordle": {"thresholds": [2, 4, 6, 8]},
     "Zaun":         {"thresholds": [3, 5, 7]}
 }
@@ -190,12 +189,14 @@ UNLOCKABLE_UNITS = [
     {"name": "Graves", "traits": ["Bilgewater", "Gunslinger"], "cost": 2, "diff": 2, "role": "carry"},
     {"name": "Yorick", "traits": ["Shadow Isles", "Warden"], "cost": 2, "diff": 2, "role": "tank"},
     {"name": "Tryndamere", "traits": ["Freljord", "Slayer"], "cost": 2, "diff": 2, "role": "carry"},
+    
     # 3 COST
     {"name": "Kennen", "traits": ["Ionia", "Yordle", "Defender"], "cost": 3, "diff": 2, "role": "tank"},
     {"name": "Kobuko & Yuumi", "traits": ["Yordle", "Bruiser", "Invoker"], "cost": 3, "diff": 2, "role": "tank"},
     {"name": "Darius", "traits": ["Noxus", "Defender"], "cost": 3, "diff": 2, "role": "tank"},
     {"name": "Gwen", "traits": ["Shadow Isles", "Disruptor"], "cost": 3, "diff": 2, "role": "carry"},
     {"name": "LeBlanc", "traits": ["Noxus", "Invoker"], "cost": 3, "diff": 2, "role": "carry"},
+    
     # 4 COST
     {"name": "Fizz", "traits": ["Bilgewater", "Yordle"], "cost": 4, "diff": 2, "role": "carry"},
     {"name": "Warwick", "traits": ["Zaun", "Quickstriker"], "cost": 4, "diff": 1, "role": "carry"},
@@ -209,6 +210,7 @@ UNLOCKABLE_UNITS = [
     {"name": "Renekton", "traits": ["Shurima"], "cost": 4, "diff": 2, "role": "tank"},
     {"name": "Veigar", "traits": ["Yordle", "Arcanist"], "cost": 4, "diff": 3, "role": "carry"},
     {"name": "Diana", "traits": ["Targon"], "cost": 4, "diff": 2, "role": "carry"},
+    
     # 5 COST
     {"name": "Sett", "traits": ["Ionia", "The Boss"], "cost": 5, "diff": 3, "role": "tank"},
     {"name": "Volibear", "traits": ["Freljord", "Bruiser"], "cost": 5, "diff": 3, "role": "tank"},
@@ -223,7 +225,7 @@ ALL_UNITS = STANDARD_UNITS + UNLOCKABLE_UNITS
 @st.cache_data(show_spinner=False)
 def solve_unlock_mission(slots, user_emblems):
     candidates = []
-    limit_max = 10000000 
+    limit_max = 5000000 
     loop_count = 0
 
     region_units = [u for u in ALL_UNITS if any(t in REGION_DATA for t in u['traits'])]
@@ -242,6 +244,7 @@ def solve_unlock_mission(slots, user_emblems):
 
     region_units.sort(key=get_unlock_score, reverse=True)
     
+    # Lấy top units để tìm kiếm
     standard_best = [u for u in region_units if any(u['name'] == su['name'] for su in STANDARD_UNITS)][:28]
     unlock_best = [u for u in region_units if any(u['name'] == uu['name'] for uu in UNLOCKABLE_UNITS)][:10]
     search_pool = standard_best + unlock_best
@@ -461,6 +464,14 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
             if len(active_regions_set) < 2 and slots >= 7: 
                 final_r_penalty = -500
 
+            # --- SHURIMA LIMITER (Logic User Yêu Cầu) ---
+            shurima_penalty = 0
+            shurima_count = traits.get("Shurima", 0)
+            if shurima_count > 2:
+                shurima_penalty -= 2500 # Phạt nặng để ưu tiên giữ ở mốc 2
+                if shurima_count >= 4:
+                    shurima_penalty -= 10000 # Phạt cực nặng (Bất khả thi)
+
             # --- XỬ LÝ TARGON & NERF FIZZ ---
             targon_c = traits.get("Targon", 0)
             if targon_c == 1: 
@@ -516,7 +527,8 @@ def solve_three_strategies(pool, slots, user_emblems, prioritize_strength=False)
                           combo_bonus + \
                           strength_score + \
                           synergy_density + \
-                          balance_penalty + unused_emblem_penalty + targon_bonus + annie_penalty + useless_unit_penalty + final_r_penalty
+                          balance_penalty + unused_emblem_penalty + targon_bonus + annie_penalty + \
+                          useless_unit_penalty + final_r_penalty + shurima_penalty
             
             # --- TẠO DANH SÁCH HIỂN THỊ (FINAL FORMATTING) ---
             r_list_fmt = [f"{r}({traits[r]})" for r in REGION_DATA if traits.get(r,0) >= REGION_DATA[r]['thresholds'][0]]
