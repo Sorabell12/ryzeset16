@@ -29,6 +29,7 @@ T = {
         "emb_class": "🛡️ Ấn Tộc/Hệ (Class Emblems)",
         "donate_title": "### ☕ Ủng hộ Dev",
         "donate_btn": "☕ Buy Me a Coffee", 
+        "select_modes": "📝 Chọn chế độ chạy (Để trống = Chạy tất cả):",
         "tabs": ["Giá Rẻ (Eco)", "Tiêu Chuẩn (Standard)", "EXODIA (Tối Thượng)", "🔓 MỞ KHÓA RYZE"],
         "mission_info": "🏆 **Nhiệm vụ:** Kích hoạt 5 Vùng Đất để mở khóa Ryze.",
         "tag_basic": "🟢 **SHOP CƠ BẢN (CÓ SẴN)**",
@@ -57,6 +58,7 @@ T = {
         "emb_class": "🛡️ Class/Trait Emblems",
         "donate_title": "### ☕ Support Dev",
         "donate_btn": "☕ Buy Me a Coffee",
+        "select_modes": "📝 Select Modes (Empty = Run All):",
         "tabs": ["Low Cost (Eco)", "Standard", "EXODIA", "🔓 UNLOCK RYZE"],
         "mission_info": "🏆 **Mission:** Activate 5 Regions to Unlock Ryze.",
         "tag_basic": "🟢 **BASIC SHOP (AVAILABLE)**",
@@ -600,6 +602,14 @@ with st.sidebar:
     t = T[lang_choice] # Current Language
 
     level = st.selectbox(t["level"], [8, 9, 10, 11])
+
+    # --- SELECTION MODE (MOVED UP) ---
+    # Đã bỏ st.markdown("---") ở đây
+    # Để mặc định là rỗng (None) ban đầu để xử lý logic "Chọn tất cả" bên dưới
+    selected_tab_names = st.multiselect(
+        t["select_modes"], 
+        options=t["tabs"]
+    )
     st.markdown("<br>", unsafe_allow_html=True)
     run = st.button(t["btn_find"], type="primary")
     st.markdown("---")
@@ -655,109 +665,112 @@ if run:
     slots_for_unlock = level
     slots_for_combat = level - 1 
     
-    tab1, tab2, tab3, tab4 = st.tabs(t["tabs"])
-    
     pool_easy_eco = [u for u in STANDARD_UNITS if u['cost'] <= 3] 
     pool_mid = [u for u in ALL_UNITS if u['diff'] <= 2]
 
-    # UNLOCK MISSION TAB
-    with tab4:
-        st.info(t["mission_info"])
-        
-        def render_unlock(sub_tab):
-            with sub_tab:
-                with st.spinner(t["spinner_unlock"]):
-                    res = solve_unlock_mission(slots_for_unlock, user_emblems) 
-                
-                if res:
-                    for i, data in enumerate(res):
-                        expanded = (i==0)
-                        u_count = data['unlock_count']
-                        
-                        if u_count == 0: tag = t["tag_basic"]
-                        else: tag = t["tag_unlock"].format(u_count)
-                            
-                        title = f"{tag} | {t['res_option']} {i+1}: {data['active_count']} {t['res_regions']} ({t['res_cost']}: {data['cost']}🟡)"
-                        
-                        with st.expander(title, expanded=expanded):
-                            st.success(f"{t['active']} {', '.join(data['regions'])}")
-                            cols = st.columns(2)
-                            active_region_names = [r.split('(')[0] for r in data['regions']]
-                            idx = 1
-                            for u in data['team']:
-                                col = cols[(idx-1) % 2]
-                                traits_html = []
-                                for tr in u['traits']:
-                                    if tr in active_region_names:
-                                        traits_html.append(f"<span style='color:#2E7D32'><b>{tr}</b></span>")
-                                    else:
-                                        traits_html.append(f"<span style='color:#555'>{tr}</b></span>")
-                                
-                                unit_name_display = u['name']
-                                if any(u['name'] == ul['name'] for ul in UNLOCKABLE_UNITS):
-                                    unit_name_display += " 🔒"
+    # --- XỬ LÝ LOGIC CHỌN TAB ---
+    final_tabs_to_run = []
+    
+    if not selected_tab_names:
+        # Nếu không chọn gì -> Chạy tất cả, nhưng đưa UNLOCK lên đầu
+        # t["tabs"] = [Eco (0), Standard (1), Exodia (2), Unlock (3)]
+        # Thứ tự mong muốn: Unlock -> Eco -> Standard -> Exodia
+        final_tabs_to_run = [t["tabs"][3], t["tabs"][0], t["tabs"][1], t["tabs"][2]]
+    else:
+        # Nếu đã chọn -> Chạy theo danh sách người dùng chọn
+        final_tabs_to_run = selected_tab_names
 
-                                col.markdown(f"{idx}. **{unit_name_display}** ({u['cost']}🟡) : {' '.join(traits_html)}", unsafe_allow_html=True)
-                                idx += 1
-                else:
-                    st.error(t["err_unlock"])
-        
-        render_unlock(st.container())
+    # Tạo giao diện Tab
+    active_tabs = st.tabs(final_tabs_to_run)
 
-    # COMBAT TABS
+    # --- ĐỊNH NGHĨA HÀM RENDER ---
+    def render_unlock(sub_tab):
+        with sub_tab:
+            with st.spinner(t["spinner_unlock"]):
+                res = solve_unlock_mission(slots_for_unlock, user_emblems) 
+            
+            if res:
+                for i, data in enumerate(res):
+                    expanded = (i==0)
+                    u_count = data['unlock_count']
+                    if u_count == 0: tag = t["tag_basic"]
+                    else: tag = t["tag_unlock"].format(u_count)
+                    title = f"{tag} | {t['res_option']} {i+1}: {data['active_count']} {t['res_regions']} ({t['res_cost']}: {data['cost']}🟡)"
+                    with st.expander(title, expanded=expanded):
+                        st.success(f"{t['active']} {', '.join(data['regions'])}")
+                        cols = st.columns(2)
+                        active_region_names = [r.split('(')[0] for r in data['regions']]
+                        idx = 1
+                        for u in data['team']:
+                            col = cols[(idx-1) % 2]
+                            traits_html = []
+                            for tr in u['traits']:
+                                if tr in active_region_names: traits_html.append(f"<span style='color:#2E7D32'><b>{tr}</b></span>")
+                                else: traits_html.append(f"<span style='color:#555'>{tr}</b></span>")
+                            unit_name_display = u['name']
+                            if any(u['name'] == ul['name'] for ul in UNLOCKABLE_UNITS): unit_name_display += " 🔒"
+                            col.markdown(f"{idx}. **{unit_name_display}** ({u['cost']}🟡) : {' '.join(traits_html)}", unsafe_allow_html=True)
+                            idx += 1
+            else:
+                st.error(t["err_unlock"])
+
     def render(tab, pool, p_str=False):
         with tab:
             with st.spinner(t["spinner_combat"]):
                 res = solve_three_strategies(pool, slots_for_combat, user_emblems, p_str)
-            
             if res:
                 for i, data in enumerate(res):
                     if not data: continue
                     team = data['team']
-                    r_l = data['r_list']
-                    c_l = data['c_list']
-                    
+                    r_l = data['r_list']; c_l = data['c_list']
                     expanded = (i==0)
                     title = f"{t['labels'][i]}: {len(r_l)} Regions / {len(c_l)} Classes"
                     if data['galio']: title += " (GALIO)"
-                    
                     with st.expander(title, expanded=expanded):
                         st.success(f"Regions: {', '.join(r_l)}")
                         if c_l: st.warning(f"Classes: {', '.join(c_l)}")
-                        
                         st.divider()
                         cl, cr = st.columns(2)
                         cl.markdown("1. **Ryze** (7🟡) <span style='color:blue'>**(Carry)**</span>", unsafe_allow_html=True)
-                        
                         idx = 2
                         for u in team:
                             role_icon = "🛡️" if u.get('role')=='tank' else ("⚔️" if u.get('role')=='carry' else "❤️")
                             traits_html = []
                             unit_note = ""
                             if u['name'] == "Annie": unit_note += " 🐻 (2 Slots)"
-                            
                             for tr in u['traits']:
                                 if "Targon" in tr: traits_html.append(f"<span style='color:#9C27B0'><b>{tr}</b></span>")
                                 elif tr in UNIQUE_TRAITS or tr == "Darkin": traits_html.append(f"<span style='color:#B8860B'><b>{tr}</b></span>")
                                 elif any(tr in x for x in r_l): traits_html.append(f"<span style='color:#2E7D32'><b>{tr}</b></span>")
                                 elif any(tr in x for x in c_l): traits_html.append(f"<span style='color:#E65100'><b>{tr}</b></span>")
                                 else: traits_html.append(f"<span style='color:#555'>{tr}</b></span>")
-
                             name = "✨ GALIO (FREE)" if u['name'] == "Galio" else u['name']
-                            if u['name'] == "Taric": name = "💎 TARIC"
+                            if u['name'] == "Taric": name = "💎 TARIC"; 
                             if u['name'] == "Ornn": name = "🔨 ORNN"
-                            
                             txt = f"{idx}. **{name}**{unit_note} ({u['cost']}🟡) {role_icon} : {' '.join(traits_html)}"
-                            
                             if idx-2 < len(team)/2: cr.markdown(txt, unsafe_allow_html=True)
                             else: cl.markdown(txt, unsafe_allow_html=True)
                             idx += 1
             else:
                 st.warning(t["err_combat"])
 
-    render(tab1, pool_easy_eco)
-    render(tab2, pool_mid, True) 
-    render(tab3, ALL_UNITS, True)
+    # --- VÒNG LẶP RENDER ---
+    for name, tab_ui in zip(final_tabs_to_run, active_tabs):
+        # Mở Khóa Ryze (Index 3 trong list gốc)
+        if name == t["tabs"][3]:
+            render_unlock(tab_ui)
+        
+        # Giá Rẻ (Index 0)
+        elif name == t["tabs"][0]: 
+            render(tab_ui, pool_easy_eco)
+        
+        # Tiêu Chuẩn (Index 1)
+        elif name == t["tabs"][1]:
+            render(tab_ui, pool_mid, True)
+        
+        # EXODIA (Index 2)
+        elif name == t["tabs"][2]:
+            render(tab_ui, ALL_UNITS, True)
 
 elif not run:
-    st.info("👈 Select Level -> Click FIND TEAMS")
+    st.info("👈 Select Options -> Click FIND TEAMS")
