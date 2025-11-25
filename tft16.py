@@ -31,10 +31,10 @@ T = {
         "donate_btn": "☕ Buy Me a Coffee", 
         "select_modes": "📝 Chọn chế độ chạy (Để trống = Chạy tất cả):",
         "tabs": ["Giá Rẻ (Eco)", "Tiêu Chuẩn (Standard)", "EXODIA (Tối Thượng)", "🔓 MỞ KHÓA RYZE"],
-        "mission_info": "🏆 **Nhiệm vụ:** Kích hoạt 5 Vùng Đất để mở khóa Ryze.",
+        "mission_info": "🏆 **Nhiệm vụ:** Kích hoạt 4 Vùng Đất để mở khóa Ryze (Yêu cầu Lv9).",
         "tag_basic": "🟢 **SHOP CƠ BẢN (CÓ SẴN)**",
         "tag_unlock": "🟠 **CẦN MỞ KHÓA ({})**",
-        "err_unlock": "Không tìm thấy cách kích 5 vùng với số slot hiện tại.",
+        "err_unlock": "Không tìm thấy cách kích 4 vùng với số slot hiện tại.",
         "err_combat": "Không tìm thấy đội hình phù hợp. Hãy thử thêm Ấn hoặc đổi Level.",
         "spinner_unlock": "Đang tính toán lộ trình rẻ nhất...",
         "spinner_combat": "Đang tìm đồng đội cho Ryze...",
@@ -60,10 +60,10 @@ T = {
         "donate_btn": "☕ Buy Me a Coffee",
         "select_modes": "📝 Select Modes (Empty = Run All):",
         "tabs": ["Low Cost (Eco)", "Standard", "EXODIA", "🔓 UNLOCK RYZE"],
-        "mission_info": "🏆 **Mission:** Activate 5 Regions to Unlock Ryze.",
+        "mission_info": "🏆 **Mission:** Activate 4 Regions to Unlock Ryze (Req Lv9).",
         "tag_basic": "🟢 **BASIC SHOP (AVAILABLE)**",
         "tag_unlock": "🟠 **REQUIRES {} UNLOCK(S)**",
-        "err_unlock": "Cannot find 5 regions with current slots.",
+        "err_unlock": "Cannot find 4 regions with current slots.",
         "err_combat": "No valid team found. Try adding Emblems or changing Level.",
         "spinner_unlock": "Calculating best paths...",
         "spinner_combat": "Finding teammates for Ryze...",
@@ -277,7 +277,8 @@ def solve_unlock_mission(slots, user_emblems):
                 active_regions += 1
                 active_list.append(f"{r}({traits[r]})")
         
-        if active_regions >= 5:
+        # --- MODIFIED LOGIC: ONLY 4 REGIONS NEEDED ---
+        if active_regions >= 4:
             candidates.append({
                 "team": list(team),
                 "active_count": active_regions,
@@ -601,7 +602,8 @@ with st.sidebar:
     
     t = T[lang_choice] # Current Language
 
-    level = st.selectbox(t["level"], [8, 9, 10, 11])
+    # --- MODIFIED: REMOVED LEVEL 8 ---
+    level = st.selectbox(t["level"], [9, 10, 11])
 
     # --- SELECTION MODE (MOVED UP) ---
     # Đã bỏ st.markdown("---") ở đây
