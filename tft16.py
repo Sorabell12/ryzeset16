@@ -31,17 +31,18 @@ T = {
         "donate_btn": "☕ Buy Me a Coffee", 
         "select_modes": "📝 Chọn chế độ chạy (Để trống = Chạy tất cả):",
         "tabs": ["Giá Rẻ (Eco)", "Tiêu Chuẩn (Standard)", "EXODIA (Tối Thượng)", "🔓 MỞ KHÓA RYZE"],
-        "mission_info": "🏆 **Nhiệm vụ:** Kích hoạt 4 Vùng Đất để mở khóa Ryze (Yêu cầu Lv9).",
+        "mission_info": "🏆 **Nhiệm vụ:** Kích hoạt 4 Vùng Đất (Ưu tiên tìm từ 7 Slot & 0 Unlock).",
         "tag_basic": "🟢 **SHOP CƠ BẢN (CÓ SẴN)**",
         "tag_unlock": "🟠 **CẦN MỞ KHÓA ({})**",
         "err_unlock": "Không tìm thấy cách kích 4 vùng với số slot hiện tại.",
         "err_combat": "Không tìm thấy đội hình phù hợp. Hãy thử thêm Ấn hoặc đổi Level.",
-        "spinner_unlock": "Đang tính toán lộ trình rẻ nhất...",
+        "spinner_unlock": "Đang quét các đội hình 7, 8, 9 slot...",
         "spinner_combat": "Đang tìm đồng đội cho Ryze...",
         "res_option": "Lựa chọn",
         "res_regions": "Vùng đất",
         "res_cost": "Vàng",
         "active": "**Kích hoạt:**",
+        "slot_opt": "⚪ **Slot Tùy Chọn (Tự do)**", 
         "labels": [
             "👑 Lựa chọn 1: CÂN BẰNG NHẤT",
             "🌍 Lựa chọn 2: TỐI ĐA VÙNG ĐẤT",
@@ -60,17 +61,18 @@ T = {
         "donate_btn": "☕ Buy Me a Coffee",
         "select_modes": "📝 Select Modes (Empty = Run All):",
         "tabs": ["Low Cost (Eco)", "Standard", "EXODIA", "🔓 UNLOCK RYZE"],
-        "mission_info": "🏆 **Mission:** Activate 4 Regions to Unlock Ryze (Req Lv9).",
+        "mission_info": "🏆 **Mission:** Activate 4 Regions (Prioritizes 7+ Slots & 0 Unlock).",
         "tag_basic": "🟢 **BASIC SHOP (AVAILABLE)**",
         "tag_unlock": "🟠 **REQUIRES {} UNLOCK(S)**",
         "err_unlock": "Cannot find 4 regions with current slots.",
         "err_combat": "No valid team found. Try adding Emblems or changing Level.",
-        "spinner_unlock": "Calculating best paths...",
+        "spinner_unlock": "Scanning 7, 8, 9 slot combinations...",
         "spinner_combat": "Finding teammates for Ryze...",
         "res_option": "Option",
         "res_regions": "Regions",
         "res_cost": "Gold",
         "active": "**Active:**",
+        "slot_opt": "⚪ **Optional Slot (Free)**",
         "labels": [
             "👑 Option 1: BEST BALANCED",
             "🌍 Option 2: MAX REGIONS",
@@ -223,13 +225,12 @@ UNLOCKABLE_UNITS = [
 
 ALL_UNITS = STANDARD_UNITS + UNLOCKABLE_UNITS
 
-# --- ALGORITHM 1: UNLOCK MISSION (CACHED) ---
+# --- ALGORITHM 1: UNLOCK MISSION (PRIORITY: 0 UNLOCKS > LOW SLOTS > LOW COST) ---
 @st.cache_data(show_spinner=False)
 def solve_unlock_mission(slots, user_emblems):
     candidates = []
-    limit_max = 5000000 
-    loop_count = 0
-
+    limit_max = 300000 
+    
     region_units = [u for u in ALL_UNITS if any(t in REGION_DATA for t in u['traits'])]
     
     def get_unlock_score(u):
@@ -246,50 +247,104 @@ def solve_unlock_mission(slots, user_emblems):
 
     region_units.sort(key=get_unlock_score, reverse=True)
     
-    # Lấy top units để tìm kiếm
-    standard_best = [u for u in region_units if any(u['name'] == su['name'] for su in STANDARD_UNITS)][:28]
-    unlock_best = [u for u in region_units if any(u['name'] == uu['name'] for uu in UNLOCKABLE_UNITS)][:10]
+    standard_best = [u for u in region_units if any(u['name'] == su['name'] for su in STANDARD_UNITS)][:35]
+    unlock_best = [u for u in region_units if any(u['name'] == uu['name'] for uu in UNLOCKABLE_UNITS)][:15]
     search_pool = standard_best + unlock_best
 
-    for team in itertools.combinations(search_pool, slots):
-        loop_count += 1
-        if loop_count > limit_max: break
-        if len(set([u['name'] for u in team])) < len(team): continue
+    # --- LOGIC MỚI: BẮT ĐẦU TÌM TỪ 7 SLOT ---
+    # Danh sách size cần tìm kiếm: 7 -> 8 -> [slots]
+    search_sizes = [7, 8]
+    if slots > 8:
+        search_sizes.append(slots)
+        
+    # Loại bỏ size trùng nhau và sắp xếp tăng dần (Ví dụ: [7, 8, 9])
+    search_sizes = sorted(list(set(search_sizes)))
 
-        traits = {}
-        total_cost = 0
-        unlock_count = 0
+    for current_size in search_sizes:
+        loop_count = 0 
         
-        for u in team:
-            total_cost += u.get('cost', 1)
-            if any(u['name'] == ul['name'] for ul in UNLOCKABLE_UNITS):
-                unlock_count += 1
-            for t in u['traits']:
-                traits[t] = traits.get(t, 0) + 1
-                
-        for emb, count in user_emblems.items():
-            traits[emb] = traits.get(emb, 0) + count
+        # Biến cờ để kiểm tra xem đã tìm được đội hình "hoàn hảo" (0 unlock) ở size này chưa
+        found_zero_unlock_at_this_size = False
+
+        for team in itertools.combinations(search_pool, current_size):
+            loop_count += 1
+            if loop_count > limit_max: break
+            if len(set([u['name'] for u in team])) < len(team): continue
+
+            traits = {}
+            total_cost = 0
+            unlock_count = 0
             
-        active_regions = 0
-        active_list = []
-        for r, data in REGION_DATA.items():
-            if traits.get(r, 0) >= data['thresholds'][0]:
-                active_regions += 1
-                active_list.append(f"{r}({traits[r]})")
+            for u in team:
+                total_cost += u.get('cost', 1)
+                if any(u['name'] == ul['name'] for ul in UNLOCKABLE_UNITS):
+                    unlock_count += 1
+                for t in u['traits']:
+                    traits[t] = traits.get(t, 0) + 1
+                    
+            for emb, count in user_emblems.items():
+                traits[emb] = traits.get(emb, 0) + count
+                
+            active_regions = 0
+            active_list = []
+            active_regions_names = []
+            
+            for r, data in REGION_DATA.items():
+                if traits.get(r, 0) >= data['thresholds'][0]:
+                    active_regions += 1
+                    active_list.append(f"{r}({traits[r]})")
+                    active_regions_names.append(r)
+            
+            if active_regions >= 4:
+                active_regions_names.sort()
+                region_sig = "-".join(active_regions_names)
+                
+                candidates.append({
+                    "team": list(team),
+                    "active_count": active_regions,
+                    "cost": total_cost,
+                    "regions": active_list,
+                    "unlock_count": unlock_count,
+                    "region_sig": region_sig
+                })
+                
+                if unlock_count == 0:
+                    found_zero_unlock_at_this_size = True
+
+                if len(candidates) >= 200: break
         
-        # --- MODIFIED LOGIC: ONLY 4 REGIONS NEEDED ---
-        if active_regions >= 4:
-            candidates.append({
-                "team": list(team),
-                "active_count": active_regions,
-                "cost": total_cost,
-                "regions": active_list,
-                "unlock_count": unlock_count
-            })
-            if len(candidates) >= 20: break
+        # --- LOGIC QUYẾT ĐỊNH DỪNG VÒNG LẶP ---
+        # Nếu tìm được đội hình 0 unlock ở bất kỳ size nào (kể cả 7), ta ưu tiên nó nhất và dừng tìm kiếm ở các size lớn hơn.
+        # Vì ưu tiên tối thượng là: 0 Unlock. Sau đó mới đến Slot.
+        # Nếu tìm được 7 slot (0 unlock) -> Dừng.
+        # Nếu tìm được 7 slot (có unlock) -> Chạy tiếp 8 slot.
+        # Nếu tìm được 8 slot (0 unlock) -> Dừng.
+        if found_zero_unlock_at_this_size:
+            break
+        
+    candidates.sort(key=lambda x: (x['unlock_count'], len(x['team']), -x['active_count'], x['cost']))
     
-    candidates.sort(key=lambda x: (-x['active_count'], x['unlock_count'], x['cost']))
-    return candidates[:5]
+    # --- BỘ LỌC ĐA DẠNG ---
+    final_results = []
+    seen_sigs = set()
+    
+    for cand in candidates:
+        if cand['region_sig'] not in seen_sigs:
+            final_results.append(cand)
+            seen_sigs.add(cand['region_sig'])
+        if len(final_results) >= 5: break
+    
+    if len(final_results) < 5:
+        remaining_slots = 5 - len(final_results)
+        for cand in candidates:
+            if cand not in final_results:
+                final_results.append(cand)
+                remaining_slots -= 1
+            if remaining_slots <= 0: break
+            
+    final_results.sort(key=lambda x: (x['unlock_count'], len(x['team']), -x['active_count'], x['cost']))
+    
+    return final_results
 
 # --- ALGORITHM 2: STANDARD OPTIMIZER (CACHED) ---
 @st.cache_data(show_spinner=False)
@@ -712,6 +767,12 @@ if run:
                             unit_name_display = u['name']
                             if any(u['name'] == ul['name'] for ul in UNLOCKABLE_UNITS): unit_name_display += " 🔒"
                             col.markdown(f"{idx}. **{unit_name_display}** ({u['cost']}🟡) : {' '.join(traits_html)}", unsafe_allow_html=True)
+                            idx += 1
+                        
+                        # --- LOGIC MỚI: ĐIỀN CÁC SLOT TÙY CHỌN NẾU THIẾU ---
+                        while idx <= slots_for_unlock:
+                            col = cols[(idx-1) % 2]
+                            col.markdown(f"{idx}. {t['slot_opt']}", unsafe_allow_html=True)
                             idx += 1
             else:
                 st.error(t["err_unlock"])
