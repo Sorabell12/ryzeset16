@@ -208,7 +208,7 @@ tab1, tab2 = st.tabs(["📷 Quét Camera", "📂 Tải ảnh lên"])
 img_file = None
 
 with tab1:
-    camera_input = st.camera_input("Chụp nhãn hàng (Đưa phần địa chỉ vào giữa)")
+    camera_input = st.camera_input("Chụp nhãn hàng (Đưa phần địa chỉ vào giữa)", facing_mode="environment")
     if camera_input:
         img_file = camera_input
 
