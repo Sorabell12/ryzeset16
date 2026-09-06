@@ -7,14 +7,14 @@ from vietocr.tool.predictor import Predictor
 from vietocr.tool.config import Cfg
 
 # ==========================================
-# THUỐC GIẢI: ÉP BỎ QUA KIỂM TRA SSL DO WEB TÁC GIẢ VIETOCR HẾT HẠN
+# THUỐC GIẢI: ÉP BỎ QUA KIỂM TRA SSL
 # ==========================================
 import requests
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 old_request = requests.Session.request
 def new_request(self, method, url, **kwargs):
-    kwargs['verify'] = False # Tắt kiểm tra chứng chỉ
+    kwargs['verify'] = False
     return old_request(self, method, url, **kwargs)
 requests.Session.request = new_request
 # ==========================================
@@ -22,26 +22,7 @@ requests.Session.request = new_request
 st.set_page_config(page_title="AI Quét Phường Nha Trang", page_icon="📍", layout="centered")
 
 # ==========================================
-# 1. NHÚNG CSS TÙY CHỈNH
-# ==========================================
-st.markdown("""
-    <style>
-        .camera-container { 
-            position: relative; 
-            width: 100%; 
-            max-width: 500px; 
-            margin: 0 auto; 
-            border-radius: 1rem; 
-            overflow: hidden; 
-            background: #000; 
-            aspect-ratio: 3/4;
-        }
-    </style>
-""", unsafe_allow_html=True)
-
-
-# ==========================================
-# 2. CƠ SỞ DỮ LIỆU & LOGIC XỬ LÝ ĐỊA CHỈ
+# 1. CƠ SỞ DỮ LIỆU & LOGIC XỬ LÝ ĐỊA CHỈ
 # ==========================================
 NHA_TRANG_WARD_DB = {
     "thong nhat": {
@@ -190,7 +171,7 @@ def parse_and_lookup_address(raw_text):
 
 
 # ==========================================
-# 3. LUỒNG CHẠY GIAO DIỆN CHÍNH
+# 2. LUỒNG CHẠY GIAO DIỆN CHÍNH
 # ==========================================
 @st.cache_resource
 def load_model():
@@ -201,21 +182,13 @@ def load_model():
 st.title("📍 AI Quét Phường - VietOCR")
 st.markdown("Hệ thống nhận diện địa chỉ tiếng Việt cực chuẩn.")
 
-with st.spinner("Đang tải mô hình AI... (Lần đầu mất 1-2 phút, các lần sau sẽ rất nhanh)"):
+with st.spinner("Đang khởi động AI... (Chỉ mất thời gian ở lần đầu tiên)"):
     model = load_model()
 
-tab1, tab2 = st.tabs(["📷 Quét Camera", "📂 Tải ảnh lên"])
-img_file = None
+st.info("💡 **Mẹo:** Trên điện thoại, khi bấm nút bên dưới, hãy chọn **'Chụp ảnh' (Take Photo)** để mở Camera sau siêu nét của máy nhé!")
 
-with tab1:
-    camera_input = st.camera_input("Chụp nhãn hàng (Đưa phần địa chỉ vào giữa)")
-    if camera_input:
-        img_file = camera_input
-
-with tab2:
-    upload_input = st.file_uploader("Hoặc tải ảnh có sẵn", type=["jpg", "png", "jpeg"])
-    if upload_input:
-        img_file = upload_input
+# GỌI CAMERA GỐC CỦA ĐIỆN THOẠI HOẶC CHỌN ẢNH TỪ THƯ VIỆN
+img_file = st.file_uploader("📸 BẤM VÀO ĐÂY ĐỂ MỞ CAMERA", type=["jpg", "png", "jpeg"])
 
 if img_file is not None:
     st.image(img_file, caption="Ảnh gốc", width=300)
