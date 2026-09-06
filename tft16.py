@@ -1,36 +1,3 @@
-import os
-import sys
-import subprocess
-
-# ==========================================
-# 0. HỆ THỐNG TỰ ĐỘNG CÀI ĐẶT THƯ VIỆN NGẦM
-# ==========================================
-def auto_install_libraries():
-    try:
-        import torch
-        import vietocr
-    except ImportError:
-        import streamlit as st
-        st.warning("⏳ Hệ thống đang tự động tải và cài đặt AI VietOCR (Chỉ chạy 1 lần duy nhất). Vui lòng không tắt web, chờ khoảng 1-2 phút...")
-        
-        try:
-            # Tải PyTorch bản CPU siêu nhẹ (tránh sập RAM trên Streamlit Cloud)
-            subprocess.check_call([sys.executable, "-m", "pip", "install", "torch", "torchvision", "--index-url", "https://download.pytorch.org/whl/cpu"])
-            # Tải VietOCR và thư viện xử lý ảnh
-            subprocess.check_call([sys.executable, "-m", "pip", "install", "vietocr", "Pillow"])
-            
-            st.success("✅ Cài đặt AI thành công! Đang tự động tải lại trang...")
-            st.rerun()
-        except Exception as e:
-            st.error(f"Lỗi cài đặt: {e}")
-            st.stop()
-
-# Khởi chạy bộ cài đặt tự động trước khi gọi thư viện
-auto_install_libraries()
-
-# ==========================================
-# 1. KHAI BÁO THƯ VIỆN & CẤU HÌNH GIAO DIỆN
-# ==========================================
 import streamlit as st
 from PIL import Image
 import re
@@ -41,7 +8,9 @@ from vietocr.tool.config import Cfg
 
 st.set_page_config(page_title="AI Quét Phường Nha Trang", page_icon="📍", layout="centered")
 
-# Nhúng CSS tùy chỉnh an toàn (không bị SyntaxError)
+# ==========================================
+# 1. NHÚNG CSS TÙY CHỈNH
+# ==========================================
 st.markdown("""
     <style>
         .camera-container { 
@@ -133,17 +102,11 @@ NHA_TRANG_WARD_DB = {
 }
 
 WAREHOUSE_DB = {
-    # --- NHA TRANG HUB ---
     "Phước Long": "NHA TRANG HUB", "Vĩnh Trường": "NHA TRANG HUB", "Vĩnh Nguyên": "NHA TRANG HUB", "Phước Đồng": "NHA TRANG HUB",
-    # --- NHA TRANG 02 HUB ---
     "Vĩnh Lương": "NHA TRANG 02 HUB", "Vĩnh Phương": "NHA TRANG 02 HUB", "Vĩnh Ngọc": "NHA TRANG 02 HUB", "Vĩnh Hòa": "NHA TRANG 02 HUB",
-    # --- NHA TRANG 03 HUB ---
     "Vĩnh Thạnh": "NHA TRANG 03 HUB", "Vĩnh Trung": "NHA TRANG 03 HUB", "Vĩnh Hiệp": "NHA TRANG 03 HUB", "Vĩnh Thái": "NHA TRANG 03 HUB",
-    # --- NHA TRANG 04 HUB ---
     "Phước Hải": "NHA TRANG 04 HUB", "Lộc Thọ": "NHA TRANG 04 HUB", "Tân Tiến": "NHA TRANG 04 HUB", "Tân Lập": "NHA TRANG 04 HUB", "Phước Hòa": "NHA TRANG 04 HUB", "Phước Tân": "NHA TRANG 04 HUB",
-    # --- NHA TRANG 05 HUB ---
     "Vĩnh Phước": "NHA TRANG 05 HUB", "Vĩnh Thọ": "NHA TRANG 05 HUB", "Vĩnh Hải": "NHA TRANG 05 HUB",
-    # --- NHA TRANG 06 HUB ---
     "Xương Huân": "NHA TRANG 06 HUB", "Vạn Thạnh": "NHA TRANG 06 HUB", "Phương Sơn": "NHA TRANG 06 HUB", "Phương Sài": "NHA TRANG 06 HUB", "Vạn Thắng": "NHA TRANG 06 HUB", "Ngọc Hiệp": "NHA TRANG 06 HUB"
 }
 
@@ -164,8 +127,6 @@ def remove_accents(input_str):
 
 def parse_and_lookup_address(raw_text):
     clean_text = remove_accents(raw_text)
-    
-    # Fix OCR lỗi nhỏ
     normalized_text = re.sub(r"ngo gia (ty|tu|tư)", "ngo gia tu", clean_text)
     
     found_street_key = None
