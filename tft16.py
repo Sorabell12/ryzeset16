@@ -6,6 +6,19 @@ import torch
 from vietocr.tool.predictor import Predictor
 from vietocr.tool.config import Cfg
 
+# ==========================================
+# THUỐC GIẢI: ÉP BỎ QUA KIỂM TRA SSL DO WEB TÁC GIẢ VIETOCR HẾT HẠN
+# ==========================================
+import requests
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+old_request = requests.Session.request
+def new_request(self, method, url, **kwargs):
+    kwargs['verify'] = False # Tắt kiểm tra chứng chỉ
+    return old_request(self, method, url, **kwargs)
+requests.Session.request = new_request
+# ==========================================
+
 st.set_page_config(page_title="AI Quét Phường Nha Trang", page_icon="📍", layout="centered")
 
 # ==========================================
@@ -181,7 +194,6 @@ def parse_and_lookup_address(raw_text):
 # ==========================================
 @st.cache_resource
 def load_model():
-    # Load model VietOCR (Mặc định dùng CPU)
     config = Cfg.load_config_from_name('vgg_transformer')
     config['device'] = 'cpu'
     return Predictor(config)
@@ -189,7 +201,7 @@ def load_model():
 st.title("📍 AI Quét Phường - VietOCR")
 st.markdown("Hệ thống nhận diện địa chỉ tiếng Việt cực chuẩn.")
 
-with st.spinner("Đang tải mô hình AI... (Có thể mất 1-2 phút ở lần chạy đầu)"):
+with st.spinner("Đang tải mô hình AI... (Lần đầu mất 1-2 phút, các lần sau sẽ rất nhanh)"):
     model = load_model()
 
 tab1, tab2 = st.tabs(["📷 Quét Camera", "📂 Tải ảnh lên"])
