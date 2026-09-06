@@ -1,0 +1,5 @@
+streamlit
+vietocr
+torch
+torchvision
+Pillow
