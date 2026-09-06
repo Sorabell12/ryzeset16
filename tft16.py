@@ -1,3 +1,36 @@
+import os
+import sys
+import subprocess
+
+# ==========================================
+# 0. HỆ THỐNG TỰ ĐỘNG CÀI ĐẶT THƯ VIỆN NGẦM
+# ==========================================
+def auto_install_libraries():
+    try:
+        import torch
+        import vietocr
+    except ImportError:
+        import streamlit as st
+        st.warning("⏳ Hệ thống đang tự động tải và cài đặt AI VietOCR (Chỉ chạy 1 lần duy nhất). Vui lòng không tắt web, chờ khoảng 1-2 phút...")
+        
+        try:
+            # Tải PyTorch bản CPU siêu nhẹ (tránh sập RAM trên Streamlit Cloud)
+            subprocess.check_call([sys.executable, "-m", "pip", "install", "torch", "torchvision", "--index-url", "https://download.pytorch.org/whl/cpu"])
+            # Tải VietOCR và thư viện xử lý ảnh
+            subprocess.check_call([sys.executable, "-m", "pip", "install", "vietocr", "Pillow"])
+            
+            st.success("✅ Cài đặt AI thành công! Đang tự động tải lại trang...")
+            st.rerun()
+        except Exception as e:
+            st.error(f"Lỗi cài đặt: {e}")
+            st.stop()
+
+# Khởi chạy bộ cài đặt tự động trước khi gọi thư viện
+auto_install_libraries()
+
+# ==========================================
+# 1. KHAI BÁO THƯ VIỆN & CẤU HÌNH GIAO DIỆN
+# ==========================================
 import streamlit as st
 from PIL import Image
 import re
@@ -8,12 +41,9 @@ from vietocr.tool.config import Cfg
 
 st.set_page_config(page_title="AI Quét Phường Nha Trang", page_icon="📍", layout="centered")
 
-# ==========================================
-# 1. NHÚNG CSS TÙY CHỈNH (Sửa lỗi SyntaxError)
-# ==========================================
+# Nhúng CSS tùy chỉnh an toàn (không bị SyntaxError)
 st.markdown("""
     <style>
-        /* CSS giao diện được bọc an toàn trong thẻ style */
         .camera-container { 
             position: relative; 
             width: 100%; 
@@ -148,11 +178,9 @@ def parse_and_lookup_address(raw_text):
             found_street_key = key
             db_street_name = data["name"]
             
-            # Tách chuỗi để tìm số nhà đứng trước
             parts = normalized_text.split(key)
             before_street = parts[0]
             
-            # Tìm số cuối cùng xuất hiện trước tên đường
             matches = re.findall(r"(\d+)(?!.*\d)", before_street)
             if matches:
                 house_num = int(matches[-1])
@@ -169,12 +197,11 @@ def parse_and_lookup_address(raw_text):
             break
             
     if not found_street_key:
-        return {"error": "Không tìm thấy tên đường trong CSDL. Vui lòng quét kỹ hơn phần Tên Đường."}
+        return {"error": "Không tìm thấy tên đường trong CSDL. Vui lòng chụp rõ phần tên đường hơn."}
         
     new_ward = get_new_ward(matched_ward)
     hub = WAREHOUSE_DB.get(matched_ward, "Chưa xác định")
     
-    # Ngoại lệ
     if db_street_name == "Ngô Đến" or "con de" in normalized_text:
         hub = "NHA TRANG 05 HUB"
         
@@ -189,26 +216,26 @@ def parse_and_lookup_address(raw_text):
 
 
 # ==========================================
-# 3. STREAMLIT UI & AI MODEL
+# 3. LUỒNG CHẠY GIAO DIỆN CHÍNH
 # ==========================================
 @st.cache_resource
 def load_model():
+    # Load model VietOCR (Mặc định dùng CPU)
     config = Cfg.load_config_from_name('vgg_transformer')
-    config['device'] = 'cpu' # Chạy trên Streamlit mặc định là CPU
+    config['device'] = 'cpu'
     return Predictor(config)
 
 st.title("📍 AI Quét Phường - VietOCR")
-st.markdown("Hệ thống nhận diện địa chỉ và tự động phân tuyến kho dựa trên **VietOCR**.")
+st.markdown("Hệ thống nhận diện địa chỉ tiếng Việt cực chuẩn.")
 
 with st.spinner("Đang tải mô hình AI... (Có thể mất 1-2 phút ở lần chạy đầu)"):
     model = load_model()
 
 tab1, tab2 = st.tabs(["📷 Quét Camera", "📂 Tải ảnh lên"])
-
 img_file = None
 
 with tab1:
-    camera_input = st.camera_input("Chụp ảnh nhãn hàng (Lưu ý: Chỉ chụp vùng có địa chỉ)")
+    camera_input = st.camera_input("Chụp nhãn hàng (Đưa phần địa chỉ vào giữa)")
     if camera_input:
         img_file = camera_input
 
@@ -222,16 +249,10 @@ if img_file is not None:
     
     with st.spinner("🧠 AI đang đọc và phân tích địa chỉ..."):
         try:
-            # Tiền xử lý ảnh cho VietOCR
             image = Image.open(img_file).convert("RGB")
-            
-            # Chạy AI
             raw_text = model.predict(image)
-            
-            # Chạy logic phân tách
             result = parse_and_lookup_address(raw_text)
             
-            # Hiển thị UI kết quả
             st.markdown("---")
             if "error" in result:
                 st.error(f"❌ Lỗi: {result['error']}")
