@@ -1,5 +1,6 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
 streamlit
 vietocr
-torch --index-url https://download.pytorch.org/whl/cpu
-torchvision --index-url https://download.pytorch.org/whl/cpu
+torch
+torchvision
 Pillow
