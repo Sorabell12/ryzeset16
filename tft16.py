@@ -1,332 +1,256 @@
-<!DOCTYPE html>
-<html lang="vi">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quét Hàng Hóa - Định Vị Phường Nha Trang (Cũ)</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+import streamlit as st
+from PIL import Image
+import re
+import unicodedata
+import torch
+from vietocr.tool.predictor import Predictor
+from vietocr.tool.config import Cfg
+
+st.set_page_config(page_title="AI Quét Phường Nha Trang", page_icon="📍", layout="centered")
+
+# ==========================================
+# 1. NHÚNG CSS TÙY CHỈNH (Sửa lỗi SyntaxError)
+# ==========================================
+st.markdown("""
     <style>
-        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
-        .camera-container { position: relative; width: 100%; max-width: 500px; margin: 0 auto; border-radius: 1rem; overflow: hidden; background: #000; aspect-ratio: 3/4;}
-        video { width: 100%; height: 100%; object-fit: cover; }
-        .overlay { position: absolute; inset: 0; pointer-events: none; border: 2px solid rgba(255, 255, 255, 0.2); }
-        .scan-box { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 80%; height: 120px; border: 2px dashed #4ade80; border-radius: 0.5rem; background: rgba(74, 222, 128, 0.1); }
-        .scanning-line { width: 100%; height: 2px; background-color: #4ade80; position: absolute; top: 0; left: 0; animation: scan 2s infinite linear; }
-        @keyframes scan { 0% { top: 0; } 50% { top: 100%; } 100% { top: 0; } }
-        #canvas { display: none; }
+        /* CSS giao diện được bọc an toàn trong thẻ style */
+        .camera-container { 
+            position: relative; 
+            width: 100%; 
+            max-width: 500px; 
+            margin: 0 auto; 
+            border-radius: 1rem; 
+            overflow: hidden; 
+            background: #000; 
+            aspect-ratio: 3/4;
+        }
     </style>
-</head>
-<body class="flex flex-col min-h-screen">
+""", unsafe_allow_html=True)
 
-    <header class="bg-blue-700 text-white p-4 shadow-md text-center">
-        <h1 class="text-xl font-bold"><i class="fa-solid fa-map-location-dot mr-2"></i>Phân Loại Phường Nha Trang</h1>
-        <p class="text-xs text-blue-200 mt-1">Hệ thống áp dụng chuẩn Phường Cũ (trước sáp nhập)</p>
-    </header>
 
-    <main class="flex-grow p-4 flex flex-col items-center w-full max-w-lg mx-auto">
+# ==========================================
+# 2. CƠ SỞ DỮ LIỆU & LOGIC XỬ LÝ ĐỊA CHỈ
+# ==========================================
+NHA_TRANG_WARD_DB = {
+    "thong nhat": {
+        "name": "Thống Nhất",
+        "rules": [
+            {"min": 1, "max": 150, "ward": "Vạn Thạnh"},
+            {"min": 151, "max": 99999, "ward": "Phương Sài"}
+        ]
+    },
+    "le hong phong": {
+        "name": "Lê Hồng Phong",
+        "rules": [
+            {"min": 1, "max": 200, "ward": "Phước Hải"},
+            {"min": 201, "max": 500, "ward": "Phước Tân"},
+            {"min": 501, "max": 99999, "ward": "Phước Long"}
+        ]
+    },
+    "thai nguyen": {
+        "name": "Thái Nguyên",
+        "rules": [
+            {"type": "even", "min": 2, "max": 100, "ward": "Phước Tân"},
+            {"type": "odd", "min": 1, "max": 99, "ward": "Phương Sài"}
+        ]
+    },
+    "tran phu": {
+        "name": "Trần Phú",
+        "rules": [
+            {"min": 1, "max": 30, "ward": "Xương Huân"},
+            {"min": 32, "max": 100, "ward": "Lộc Thọ"}
+        ]
+    },
+    "2 thang 4": {
+        "name": "2 Tháng 4",
+        "rules": [
+            {"min": 1, "max": 200, "ward": "Vạn Thạnh"},
+            {"min": 400, "max": 1000, "ward": "Vĩnh Phước"}
+        ]
+    },
+    "hai thang tu": { 
+        "name": "2 Tháng 4",
+        "rules": [
+            {"min": 1, "max": 200, "ward": "Vạn Thạnh"},
+            {"min": 400, "max": 1000, "ward": "Vĩnh Phước"}
+        ]
+    },
+    "yersin": {
+        "name": "Yersin",
+        "rules": [
+            {"min": 1, "max": 19, "ward": "Lộc Thọ"},
+            {"min": 20, "max": 49, "ward": "Vạn Thắng"}
+        ]
+    },
+    "ba trieu": {
+        "name": "Bà Triệu",
+        "rules": [
+            {"min": 1, "max": 99999, "ward": "Phương Sài"}
+        ]
+    },
+    "luong dinh cua": {
+        "name": "Lương Định Của",
+        "rules": [
+            {"min": 1, "max": 99999, "ward": "Ngọc Hiệp"}
+        ]
+    },
+    "ngo gia tu": {
+        "name": "Ngô Gia Tự",
+        "rules": [
+            {"min": 1, "max": 99999, "ward": "Tân Lập"}
+        ]
+    }
+}
+
+WAREHOUSE_DB = {
+    # --- NHA TRANG HUB ---
+    "Phước Long": "NHA TRANG HUB", "Vĩnh Trường": "NHA TRANG HUB", "Vĩnh Nguyên": "NHA TRANG HUB", "Phước Đồng": "NHA TRANG HUB",
+    # --- NHA TRANG 02 HUB ---
+    "Vĩnh Lương": "NHA TRANG 02 HUB", "Vĩnh Phương": "NHA TRANG 02 HUB", "Vĩnh Ngọc": "NHA TRANG 02 HUB", "Vĩnh Hòa": "NHA TRANG 02 HUB",
+    # --- NHA TRANG 03 HUB ---
+    "Vĩnh Thạnh": "NHA TRANG 03 HUB", "Vĩnh Trung": "NHA TRANG 03 HUB", "Vĩnh Hiệp": "NHA TRANG 03 HUB", "Vĩnh Thái": "NHA TRANG 03 HUB",
+    # --- NHA TRANG 04 HUB ---
+    "Phước Hải": "NHA TRANG 04 HUB", "Lộc Thọ": "NHA TRANG 04 HUB", "Tân Tiến": "NHA TRANG 04 HUB", "Tân Lập": "NHA TRANG 04 HUB", "Phước Hòa": "NHA TRANG 04 HUB", "Phước Tân": "NHA TRANG 04 HUB",
+    # --- NHA TRANG 05 HUB ---
+    "Vĩnh Phước": "NHA TRANG 05 HUB", "Vĩnh Thọ": "NHA TRANG 05 HUB", "Vĩnh Hải": "NHA TRANG 05 HUB",
+    # --- NHA TRANG 06 HUB ---
+    "Xương Huân": "NHA TRANG 06 HUB", "Vạn Thạnh": "NHA TRANG 06 HUB", "Phương Sơn": "NHA TRANG 06 HUB", "Phương Sài": "NHA TRANG 06 HUB", "Vạn Thắng": "NHA TRANG 06 HUB", "Ngọc Hiệp": "NHA TRANG 06 HUB"
+}
+
+def get_new_ward(old_ward):
+    ward_map = {
+        "Vạn Thạnh": "Phường Nha Trang", "Lộc Thọ": "Phường Nha Trang", "Xương Huân": "Phường Nha Trang",
+        "Phương Sài": "Phường Tây Nha Trang", "Vạn Thắng": "Phường Tây Nha Trang", "Phương Sơn": "Phường Tây Nha Trang",
+        "Phước Tiến": "Phường Nam Nha Trang", "Phước Hòa": "Phường Nam Nha Trang", "Tân Lập": "Phường Nam Nha Trang",
+        "Phước Tân": "Phường Nam Nha Trang"
+    }
+    return ward_map.get(old_ward, "Chưa thay đổi")
+
+def remove_accents(input_str):
+    if not input_str:
+        return ""
+    return ''.join(c for c in unicodedata.normalize('NFD', input_str)
+                  if unicodedata.category(c) != 'Mn').lower().strip()
+
+def parse_and_lookup_address(raw_text):
+    clean_text = remove_accents(raw_text)
+    
+    # Fix OCR lỗi nhỏ
+    normalized_text = re.sub(r"ngo gia (ty|tu|tư)", "ngo gia tu", clean_text)
+    
+    found_street_key = None
+    db_street_name = ""
+    matched_ward = "Không xác định"
+    house_num = 0
+    
+    for key, data in NHA_TRANG_WARD_DB.items():
+        if key in normalized_text:
+            found_street_key = key
+            db_street_name = data["name"]
+            
+            # Tách chuỗi để tìm số nhà đứng trước
+            parts = normalized_text.split(key)
+            before_street = parts[0]
+            
+            # Tìm số cuối cùng xuất hiện trước tên đường
+            matches = re.findall(r"(\d+)(?!.*\d)", before_street)
+            if matches:
+                house_num = int(matches[-1])
+                
+            for rule in data["rules"]:
+                rule_type = rule.get("type")
+                if rule_type == "even" and house_num % 2 != 0: continue
+                if rule_type == "odd" and house_num % 2 == 0: continue
+                
+                rule_max = rule.get("max", 99999)
+                if house_num >= rule["min"] and house_num <= rule_max:
+                    matched_ward = rule["ward"]
+                    break
+            break
+            
+    if not found_street_key:
+        return {"error": "Không tìm thấy tên đường trong CSDL. Vui lòng quét kỹ hơn phần Tên Đường."}
         
-        <!-- Camera Section -->
-        <div class="camera-container shadow-lg mb-4">
-            <video id="video" autoplay playsinline></video>
-            <div class="overlay">
-                <div class="scan-box" id="scan-box">
-                    <div class="scanning-line hidden" id="scan-line"></div>
-                </div>
-            </div>
-            <!-- Loading Indicator for OCR -->
-            <div id="loading-overlay" class="absolute inset-0 bg-black bg-opacity-70 flex flex-col items-center justify-center text-white hidden">
-                <i class="fa-solid fa-spinner fa-spin text-4xl text-green-400 mb-2"></i>
-                <p class="text-sm" id="loading-text">Đang phân tích hình ảnh...</p>
-            </div>
-        </div>
+    new_ward = get_new_ward(matched_ward)
+    hub = WAREHOUSE_DB.get(matched_ward, "Chưa xác định")
+    
+    # Ngoại lệ
+    if db_street_name == "Ngô Đến" or "con de" in normalized_text:
+        hub = "NHA TRANG 05 HUB"
+        
+    return {
+        "number": house_num,
+        "street": db_street_name,
+        "ward": matched_ward,
+        "new_ward": new_ward,
+        "hub": hub,
+        "raw_text": raw_text
+    }
 
-        <div class="flex space-x-3 w-full mb-6">
-            <button id="capture-btn" class="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-xl shadow-md transition-transform transform active:scale-95 flex items-center justify-center text-sm">
-                <i class="fa-solid fa-camera mr-2"></i> Chụp Quét
-            </button>
-            <button id="auto-scan-btn" class="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-4 rounded-xl shadow-md transition-transform transform active:scale-95 flex items-center justify-center text-sm">
-                <i class="fa-solid fa-bolt mr-2"></i> Quét Tự Động
-            </button>
-        </div>
 
-        <canvas id="canvas"></canvas>
+# ==========================================
+# 3. STREAMLIT UI & AI MODEL
+# ==========================================
+@st.cache_resource
+def load_model():
+    config = Cfg.load_config_from_name('vgg_transformer')
+    config['device'] = 'cpu' # Chạy trên Streamlit mặc định là CPU
+    return Predictor(config)
 
-        <!-- Result Card -->
-        <div id="result-card" class="w-full bg-white rounded-xl shadow-md p-5 mb-4 hidden border-l-4 border-blue-500">
-            <h2 class="text-lg font-bold text-gray-800 mb-2 border-b pb-2"><i class="fa-solid fa-boxes-packing text-blue-500 mr-2"></i>Kết Quả Phân Loại</h2>
-            <div class="space-y-2 mt-3">
-                <p class="text-sm text-gray-600">Văn bản quét được: <span id="raw-text" class="font-mono text-gray-900 bg-gray-100 p-1 rounded block mt-1 break-words italic"></span></p>
-                <div class="flex items-center justify-between bg-blue-50 p-3 rounded-lg">
-                    <span class="text-sm font-semibold text-gray-700">Tên đường:</span>
-                    <span id="res-street" class="font-bold text-blue-700 text-right">---</span>
-                </div>
-                <div class="flex items-center justify-between bg-blue-50 p-3 rounded-lg">
-                    <span class="text-sm font-semibold text-gray-700">Số nhà:</span>
-                    <span id="res-number" class="font-bold text-blue-700 text-right">---</span>
-                </div>
-                <div class="flex flex-col bg-green-50 p-3 rounded-lg border border-green-200 mt-2">
-                    <span class="text-xs font-semibold text-gray-500 uppercase">Thuộc phường (Cũ):</span>
-                    <span id="res-ward" class="font-bold text-green-700 text-xl mt-1"><i class="fa-solid fa-check-circle mr-1"></i> ---</span>
-                </div>
-            </div>
-        </div>
+st.title("📍 AI Quét Phường - VietOCR")
+st.markdown("Hệ thống nhận diện địa chỉ và tự động phân tuyến kho dựa trên **VietOCR**.")
 
-        <!-- Manual Override / Testing Section -->
-        <div class="w-full bg-white rounded-xl shadow-md p-5 border border-gray-200">
-            <h3 class="text-sm font-bold text-gray-700 mb-3"><i class="fa-solid fa-keyboard mr-2"></i>Nhập Thủ Công (Để Kiểm Tra)</h3>
-            <div class="flex space-x-2">
-                <input type="text" id="manual-address" placeholder="VD: 155 Thống Nhất" class="flex-grow border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
-                <button id="manual-btn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow transition-colors">
-                    Kiểm tra
-                </button>
-            </div>
-            <p class="text-xs text-gray-400 mt-2">*Hệ thống giả lập dữ liệu cho đường Thống Nhất, Lê Hồng Phong, Thái Nguyên.</p>
-        </div>
+with st.spinner("Đang tải mô hình AI... (Có thể mất 1-2 phút ở lần chạy đầu)"):
+    model = load_model()
 
-    </main>
+tab1, tab2 = st.tabs(["📷 Quét Camera", "📂 Tải ảnh lên"])
 
-    <script>
-        // Cơ sở dữ liệu MOCK mô phỏng phân tách phường cũ dựa trên số nhà
-        // Việc thiết lập này giả định các quy tắc chẵn/lẻ hoặc khoảng số
-        const NHA_TRANG_WARD_DB = {
-            "thong nhat": {
-                name: "Thống Nhất",
-                rules: [
-                    // Giả lập: Số từ 1 đến 150 thuộc Vạn Thạnh cũ, từ 151 trở lên thuộc Phương Sài cũ
-                    { min: 1, max: 150, ward: "Vạn Thạnh (Chưa sáp nhập)" },
-                    { min: 151, max: 9999, ward: "Phương Sài (Chưa sáp nhập)" }
-                ]
-            },
-            "le hong phong": {
-                name: "Lê Hồng Phong",
-                rules: [
-                    // Giả lập: Đường rất dài cắt qua nhiều phường
-                    { min: 1, max: 200, ward: "Phước Hải (Cũ)" },
-                    { min: 201, max: 500, ward: "Phước Tân (Cũ)" },
-                    { min: 501, max: 9999, ward: "Phước Long" }
-                ]
-            },
-            "thai nguyen": {
-                name: "Thái Nguyên",
-                rules: [
-                    { type: "even", min: 2, max: 100, ward: "Phước Tân (Cũ)" },
-                    { type: "odd", min: 1, max: 99, ward: "Phương Sài (Cũ)" }
-                ]
-            }
-        };
+img_file = None
 
-        // Utility to remove Vietnamese accents for easier matching
-        function removeAccents(str) {
-            return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
-        }
+with tab1:
+    camera_input = st.camera_input("Chụp ảnh nhãn hàng (Lưu ý: Chỉ chụp vùng có địa chỉ)")
+    if camera_input:
+        img_file = camera_input
 
-        // Logic phân tích và tra cứu
-        function parseAndLookupAddress(rawText) {
-            // Regex cơ bản để tìm Số nhà và phần Tên đường phía sau
-            // Ví dụ: "Số 155 Thống Nhất, Nha Trang" -> Match: 155, Thống Nhất
-            const regex = /(?:số\s*)?(\d+)[a-zA-Z\/\-]*\s+([a-zA-ZÀ-ỹ\s]+)/i;
-            const match = rawText.match(regex);
+with tab2:
+    upload_input = st.file_uploader("Hoặc tải ảnh có sẵn", type=["jpg", "png", "jpeg"])
+    if upload_input:
+        img_file = upload_input
 
-            if (!match) {
-                return { error: "Không tìm thấy cấu trúc 'Số nhà + Tên đường' trong ảnh." };
-            }
-
-            const houseNum = parseInt(match[1], 10);
-            let streetNameRaw = match[2].trim();
+if img_file is not None:
+    st.image(img_file, caption="Ảnh gốc", width=300)
+    
+    with st.spinner("🧠 AI đang đọc và phân tích địa chỉ..."):
+        try:
+            # Tiền xử lý ảnh cho VietOCR
+            image = Image.open(img_file).convert("RGB")
             
-            // Xóa chữ "đường" hoặc "phố" ở đầu nếu có
-            streetNameRaw = streetNameRaw.replace(/^(đường|phố)\s+/i, '');
-
-            const cleanStreetName = removeAccents(streetNameRaw);
-            let matchedWard = "Không xác định hoặc phường mặc định";
-            let dbStreetName = streetNameRaw;
-
-            // Tìm kiếm trong DB
-            let found = false;
-            for (const [key, data] of Object.entries(NHA_TRANG_WARD_DB)) {
-                // Kiểm tra xem chuỗi tên đường quét được có chứa tên đường trong DB không
-                if (cleanStreetName.includes(key)) {
-                    found = true;
-                    dbStreetName = data.name;
-                    // Lọc qua các rule số nhà
-                    for (const rule of data.rules) {
-                        if (rule.type === 'even' && houseNum % 2 !== 0) continue;
-                        if (rule.type === 'odd' && houseNum % 2 === 0) continue;
-                        
-                        if (houseNum >= rule.min && houseNum <= (rule.max || 99999)) {
-                            matchedWard = rule.ward;
-                            break;
-                        }
-                    }
-                    break;
-                }
-            }
-
-            if (!found) {
-                 return { 
-                    number: houseNum, 
-                    street: dbStreetName, 
-                    ward: "Chưa có dữ liệu ranh giới trong hệ thống",
-                    warning: true 
-                };
-            }
-
-            return { number: houseNum, street: dbStreetName, ward: matchedWard };
-        }
-
-        const video = document.getElementById('video');
-        const canvas = document.getElementById('canvas');
-        const captureBtn = document.getElementById('capture-btn');
-        const autoScanBtn = document.getElementById('auto-scan-btn');
-        const scanLine = document.getElementById('scan-line');
-        const loadingOverlay = document.getElementById('loading-overlay');
-        const loadingText = document.getElementById('loading-text');
-        const resultCard = document.getElementById('result-card');
-
-        // Khởi động Camera
-        async function initCamera() {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { facingMode: 'environment' } // Ưu tiên camera sau
-                });
-                video.srcObject = stream;
-            } catch (err) {
-                console.error("Lỗi truy cập camera: ", err);
-                alert("Không thể truy cập camera. Vui lòng kiểm tra quyền trình duyệt.");
-            }
-        }
-
-        window.onload = () => {
-            initCamera();
-        };
-
-        let isProcessing = false;
-        let autoScanInterval = null;
-
-        async function executeScan() {
-            if (!video.srcObject || isProcessing) return;
-            isProcessing = true;
-
-            // Chụp khung hình từ Video
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            const context = canvas.getContext('2d');
-            context.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-            // Cập nhật UI trạng thái
-            scanLine.classList.remove('hidden');
-            // Chỉ hiện overlay che đen màn hình nếu đang quét thủ công
-            if (!autoScanInterval) {
-                loadingOverlay.classList.remove('hidden'); 
-            }
-            resultCard.classList.add('hidden');
+            # Chạy AI
+            raw_text = model.predict(image)
             
-            try {
-                const dataUrl = canvas.toDataURL('image/jpeg');
+            # Chạy logic phân tách
+            result = parse_and_lookup_address(raw_text)
+            
+            # Hiển thị UI kết quả
+            st.markdown("---")
+            if "error" in result:
+                st.error(f"❌ Lỗi: {result['error']}")
+                st.warning(f"Văn bản AI đọc được: {raw_text}")
+            else:
+                st.success("✅ Trích xuất thành công!")
                 
-                // Khởi chạy Tesseract.js (Nhận diện tiếng Việt)
-                const result = await Tesseract.recognize(
-                    dataUrl,
-                    'vie', // Ngôn ngữ Tiếng Việt
-                    { logger: m => {
-                        if(m.status === 'recognizing text' && !autoScanInterval){
-                            loadingText.innerText = `Đang phân tích chữ... ${Math.round(m.progress * 100)}%`;
-                        }
-                    }}
-                );
-
-                const extractedText = result.data.text.trim();
+                col1, col2 = st.columns(2)
+                col1.metric("Đường", result["street"])
+                col2.metric("Số nhà", result["number"])
                 
-                if(!extractedText) {
-                    if (!autoScanInterval) {
-                        showResult(extractedText, {error: "Không nhận diện được chữ trên ảnh. Hãy thử đưa máy gần hơn và đảm bảo đủ sáng."});
-                    }
-                } else {
-                    const parsedData = parseAndLookupAddress(extractedText);
+                col3, col4 = st.columns(2)
+                col3.metric("Phường (Cũ)", result["ward"])
+                col4.metric("Phường (Mới)", result["new_ward"])
+                
+                st.info(f"🚚 **Tuyến Kho Nhận: {result['hub']}**")
+                
+                with st.expander("Xem văn bản gốc AI đọc được"):
+                    st.code(raw_text)
                     
-                    // Nếu đang quét tự động và không tìm thấy đường trong DB, cứ âm thầm quét tiếp
-                    if (autoScanInterval && (parsedData.error || parsedData.warning)) {
-                        // Không làm gì, bỏ qua khung hình này
-                    } else {
-                        showResult(extractedText, parsedData);
-                        // Nếu quét tự động thành công ra kết quả, tự động dừng quét
-                        if (autoScanInterval && !parsedData.error && !parsedData.warning) {
-                            toggleAutoScan();
-                        }
-                    }
-                }
-
-            } catch (error) {
-                console.error(error);
-                if (!autoScanInterval) {
-                    showResult("", {error: "Có lỗi xảy ra trong quá trình nhận diện (OCR)."});
-                }
-            } finally {
-                scanLine.classList.add('hidden');
-                loadingOverlay.classList.add('hidden');
-                loadingText.innerText = 'Đang phân tích hình ảnh...';
-                isProcessing = false;
-            }
-        }
-
-        function toggleAutoScan() {
-            if (autoScanInterval) {
-                // Tắt quét tự động
-                clearInterval(autoScanInterval);
-                autoScanInterval = null;
-                autoScanBtn.innerHTML = '<i class="fa-solid fa-bolt mr-2"></i> Quét Tự Động';
-                autoScanBtn.classList.replace('bg-yellow-500', 'bg-gray-600');
-                autoScanBtn.classList.replace('hover:bg-yellow-600', 'hover:bg-gray-700');
-                scanLine.classList.add('hidden');
-            } else {
-                // Bật quét tự động
-                executeScan(); // Chạy ngay lập tức 1 lần
-                autoScanInterval = setInterval(executeScan, 2000); // Lặp lại mỗi 2 giây
-                autoScanBtn.innerHTML = '<i class="fa-solid fa-stop mr-2"></i> Dừng Tự Động';
-                autoScanBtn.classList.replace('bg-gray-600', 'bg-yellow-500');
-                autoScanBtn.classList.replace('hover:bg-gray-700', 'hover:bg-yellow-600');
-                scanLine.classList.remove('hidden');
-            }
-        }
-
-        captureBtn.addEventListener('click', executeScan);
-        autoScanBtn.addEventListener('click', toggleAutoScan);
-
-        // Xử lý nút nhập thủ công
-        document.getElementById('manual-btn').addEventListener('click', () => {
-            const val = document.getElementById('manual-address').value;
-            if(!val) return;
-            const parsedData = parseAndLookupAddress(val);
-            showResult(val, parsedData);
-        });
-
-        function showResult(rawText, data) {
-            resultCard.classList.remove('hidden');
-            document.getElementById('raw-text').innerText = rawText || "(Không có văn bản)";
-            
-            if (data.error) {
-                document.getElementById('res-street').innerText = "Lỗi";
-                document.getElementById('res-number').innerText = "Lỗi";
-                document.getElementById('res-ward').innerHTML = `<i class="fa-solid fa-triangle-exclamation text-red-500 mr-1"></i> <span class="text-red-600 text-base">${data.error}</span>`;
-                return;
-            }
-
-            document.getElementById('res-street').innerText = data.street;
-            document.getElementById('res-number').innerText = data.number;
-            
-            const wardElem = document.getElementById('res-ward');
-            if(data.warning) {
-                wardElem.innerHTML = `<i class="fa-solid fa-circle-info text-yellow-500 mr-1"></i> <span class="text-yellow-700 text-base">${data.ward}</span>`;
-            } else {
-                wardElem.innerHTML = `<i class="fa-solid fa-check-circle text-green-500 mr-1"></i> <span class="text-green-700 text-xl">${data.ward}</span>`;
-            }
-            
-            // Scroll to result
-            resultCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        }
-
-    </script>
-</body>
-</html>
+        except Exception as e:
+            st.error(f"Đã xảy ra lỗi hệ thống: {e}")
